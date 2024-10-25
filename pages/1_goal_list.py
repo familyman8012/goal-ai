@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import datetime, timedelta
 import pandas as pd
-from database import get_goals, get_categories
+from database import get_goals, get_categories, delete_goal
 
 st.title("진행중/완료 목표 목록")
 
@@ -131,12 +131,29 @@ else:
                     start_date = pd.to_datetime(goal["start_date"]).strftime(
                         "%Y-%m-%d"
                     )
-                    unique_key = f"incomplete_{goal['id']}_{period}_{idx}"
-                    if st.button(
-                        f"📌 {goal['title']} ({start_date})", key=unique_key
-                    ):
-                        st.query_params["goal_id"] = str(goal["id"])
-                        st.switch_page("pages/3_goal_detail.py")
+
+                    # 목표 제목과 삭제 버튼을 나란히 배치하기 위한 컬럼 생성
+                    col1, col2 = st.columns([6, 1])
+
+                    with col1:
+                        unique_key = f"incomplete_{goal['id']}_{period}_{idx}"
+                        if st.button(
+                            f"📌 {goal['title']} ({start_date})",
+                            key=unique_key,
+                        ):
+                            st.query_params["goal_id"] = str(goal["id"])
+                            st.switch_page("pages/3_goal_detail.py")
+
+                    with col2:
+                        delete_key = f"delete_{goal['id']}_{period}_{idx}"
+                        if st.button("✕", key=delete_key):
+                            if delete_goal(goal["id"]):
+                                st.success(
+                                    f"'{goal['title']}' 목표가 삭제되었습니다."
+                                )
+                                st.rerun()
+                            else:
+                                st.error("목표 삭제 중 오류가 발생했습니다.")
 
             # 완료된 목표
             st.subheader("완료된 목표")
@@ -153,4 +170,4 @@ else:
                         f"✅ {goal['title']} ({start_date})", key=unique_key
                     ):
                         st.query_params["goal_id"] = str(goal["id"])
-                        st.switch_page("pages/2_goal_detail.py")
+                        st.switch_page("pages/3_goal_detail.py")

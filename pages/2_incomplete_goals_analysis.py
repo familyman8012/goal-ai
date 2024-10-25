@@ -4,6 +4,7 @@ import pandas as pd
 import openai
 from database import get_goals, get_goal_analysis, add_goal_analysis
 from config import OPENAI_API_KEY
+from utils.llm_utils import LLMFactory
 
 st.title("미달성 목표 분석")
 
@@ -38,7 +39,7 @@ else:
                 >= (current_time - timedelta(days=30))
             )
             & (pd.to_datetime(goals_df["end_date"]) < current_time)
-            & (goals_df["status"] != "완")
+            & (goals_df["status"] != "완료")  # 올바른 상태값
         ],
     }
 
@@ -85,33 +86,26 @@ else:
                             )
 
                     def generate_analysis(goals_text):
-                        client = openai.OpenAI(api_key=OPENAI_API_KEY)
-                        response = client.chat.completions.create(
-                            model="gpt-4o",
-                            messages=[
-                                {
-                                    "role": "system",
-                                    "content": """당신은 사용자의 가장 친한 친구이자 라이프 코치입니다. 
-                                    친근하고 따뜻한 어조로, 
-                                    마치 친한 고객님에게 응원의 편지를 쓰듯이 메시지를 전달합니다.                                    
-                            
-                                    - 1. 2. 이런식의 나열하듯 딱딱한 말을 하지 않고 구어체로 편지를 쓰듯 전달합니다.
-                                    - 희망적이고 긍정적인 메시지로 마무리합니다.
-                                    - 어떻게 하면 실천을 할 수 있을지에 대한 실행지침도 알려줍니다. 이때 이번 실행지침을 알려준다고 언급하세요.
-                                    - 고객님이기때문에 친근하고 긍정적이고 때로 위트있지만 정중함도 곁들입니다.
-                                    - 적절하게 다양한 이모티콘을 섞어서 표현합니다.""",
-                                },
-                                {
-                                    "role": "user",
-                                    "content": f"""다음은 달성하지 못한 소중한 목표들이에요:\n{goals_text}\n
-                                    이 목표들이 이뤄졌다면 어떤 멋진 변화들이 있었을지, 
-                                    마치 친한 고객님에게 이야기하듯이 따뜻하게 이야기해주세요.
-                                    구체적인 상황과 감정을 상상하면서, 앞으로의 가능성도 함께 이야기해주세요.""",
-                                },
-                            ],
-                            temperature=0.8,
+                        system_prompt = """당신은 사용자의 가장 친한 친구이자 라이프 코치입니다. 
+                        친근하고 따뜻한 어조로, 
+                        마치 친한 고객님에게 응원의 편지를 쓰듯이 메시지를 전달합니다.                                    
+
+                        - 1. 2. 이런식의 나열하듯 딱딱한 말을 하지 않고 구어체로 편지를 쓰듯 전달합니다.
+                        - 희망적이고 긍정적인 메시지로 마무리합니다.
+                        - 어떻게 하면 실천을 할 수 있을지에 대한 실행지침도 알려줍니다.
+                        - 고객님이기때문에 친근하고 긍정적이고 때로 위트있지만 정중함도 곁들입니다.
+                        - 적절하게 다양한 이모티콘을 섞어서 표현합니다."""
+
+                        user_prompt = f"""다음은 달성하지 못한 소중한 목표들이에요:\n{goals_text}\n
+                        이 목표들이 이뤄졌다면 어떤 멋진 변화들이 있었을지, 
+                        마치 친한 고객님에게 이야기하듯이 따뜻하게 이야기해주세요.
+                        구체적인 상황과 감정을 상상하면서, 앞으로의 가능성도 함께 이야기해주세요."""
+
+                        return LLMFactory.get_response(
+                            st.session_state.selected_model,
+                            system_prompt,
+                            user_prompt,
                         )
-                        return response.choices[0].message.content
 
                     if existing_analysis:
                         # 기존 분석 결과 표시
