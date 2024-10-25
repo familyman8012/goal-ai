@@ -6,6 +6,7 @@ from config import OPENAI_API_KEY
 from utils.llm_utils import LLMFactory, StreamHandler  # StreamHandler 추가
 import uuid
 from utils.date_utils import parse_weekdays, generate_recurring_dates
+from utils.pplx_utils import search_with_pplx
 
 st.title("목표 달성 GPT")
 st.markdown(
@@ -42,11 +43,47 @@ for message in st.session_state.messages[1:]:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-# 사용자 입력
+# 사용자 입력 처리
 if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)
+
+    # 정확히 '검색해줘'로 끝나는 경우에만 PPLX API 호출
+    if prompt.endswith("검색해줘"):
+        search_query = prompt[:-4].strip()  # "검색해줘" 제거
+        search_result = search_with_pplx(search_query)
+        
+        chat_container = st.chat_message("assistant")
+        chat_container.markdown(search_result)
+        
+        # 사용자의 질문과 검색 결과를 대화 컨텍스트에 추가
+        st.session_state.messages.append({"role": "assistant", "content": search_result})
+        
+        # 검색 결과를 시스템 메시지에 추가하여 컨텍스트 유지
+        context_update = f"""이전 검색 결과 정보:
+        검색어: {search_query}
+        결과: {search_result}
+        
+        이 정보를 참고하여 대화를 이어나가주세요."""
+        
+        st.session_state.messages[0]["content"] += "\n\n" + context_update
+    
+    else:
+        # 일반 대화 처리
+        chat_container = st.chat_message("assistant")
+        stream_handler = StreamHandler(chat_container)
+        assistant_response = LLMFactory.get_response(
+            st.session_state.selected_model,
+            st.session_state.messages[0]["content"],
+            prompt,
+            st.session_state.session_id,
+            stream_handler=stream_handler,
+        )
+
+        st.session_state.messages.append(
+            {"role": "assistant", "content": assistant_response}
+        )
 
 # 모델 선택 드롭다운 추가
 st.sidebar.title("AI 모델 설정")
@@ -78,170 +115,3 @@ if st.session_state.selected_model != model_options[selected_model]:
 # 세션 ID 생성 (앱 시작시)
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
-
-# 목표 추가 의도 확인 및 카테고리 파악
-if prompt:
-    intent_system_prompt = """사용자의 메시지에서 목표 추가 의도와 카테고리를 파악하세요. 
-'커리어에 개발공부 추가해줘' 또는 '개발공부 추가해줘' 와 같은 형식이면 
-'YES:목표내용:카테고리명' 형식으로, 
-예를 들어 '커리어에 ts 공부 추가해줘'는 'YES:ts 공부:커리어'로, 
-'ts 공부 추가해줘'는 'YES:ts 공부:전체'로,
-'매주 화 목 토요일에 운동하기'와 같은 정기적인 일정은 'RECURRING:운동하기:전체'로,
-목표 추가 의도가 없으면 'NO'로만 답하세요. 
-단, '추가해줘'라는 단어가 있어야만 목표 추가로 인식합니다."""
-
-    # single_get_response 사용으로 변경 (컨텍스트가 필요없는 단일 요청이므로)
-    intent_response = LLMFactory.single_get_response(
-        st.session_state.selected_model, intent_system_prompt, prompt
-    )
-
-    if intent_response.startswith("RECURRING:"):
-        parts = intent_response.split(":")
-        goal_title = parts[1].strip()
-        category_name = parts[2].strip()
-        
-        # 요일 파싱
-        weekdays = parse_weekdays(prompt)
-        if weekdays:
-            # 날짜 생성
-            dates = generate_recurring_dates(weekdays)
-            
-            # 카테고리 처리
-            category_id = None
-            if category_name != "전체":
-                category_match = categories_df[categories_df["name"] == category_name]
-                if not category_match.empty:
-                    category_id = category_match.iloc[0]["id"]
-                else:
-                    new_category = add_category(category_name)
-                    category_id = new_category.id
-            
-            # 정기 목표 추가
-            add_recurring_goals(
-                title=goal_title,
-                dates=dates,
-                category_id=category_id
-            )
-            
-            st.success(f"'{goal_title}'이(가) {len(dates)}개의 날짜에 추가되었습니다!")
-            
-    elif intent_response.startswith("YES:"):
-        parts = intent_response.split(":")
-        goal_title = parts[1].strip()
-        category_name = parts[2].strip()
-
-        # 카테고리 처리
-        categories_df = get_categories()
-        category_id = None
-        if category_name != "전체":
-            category_match = categories_df[
-                categories_df["name"] == category_name
-            ]
-            if not category_match.empty:
-                category_id = category_match.iloc[0]["id"]
-            else:
-                # 새 카테고리 추가
-                new_category = add_category(category_name)
-                category_id = new_category.id
-
-        # GPT 응답
-        chat_container = st.chat_message("assistant")
-        stream_handler = StreamHandler(chat_container)
-
-        # 날짜 확인을 위한 전용 시스템 프롬프트
-        date_system_prompt = """
-        사용자의 메시지에서 목표의 시작일과 종료일을 파악하세요.
-        날짜가 언급되어 있다면 'START:YYYY-MM-DD,END:YYYY-MM-DD' 형식으로,
-        없다면 'DEFAULT'로 응답하세요.
-        """
-
-        date_response = LLMFactory.single_get_response(
-            st.session_state.selected_model,
-            date_system_prompt,
-            prompt,
-        )
-
-        if date_response == "DEFAULT":
-            start_date = datetime.now()
-            end_date = start_date
-        else:
-            try:
-                start_str = (
-                    date_response.split(",")[0].replace("START:", "").strip()
-                )
-                end_str = (
-                    date_response.split(",")[1].replace("END:", "").strip()
-                )
-
-                # 날짜 형식 검증
-                if not (
-                    start_str.replace("-", "").isdigit()
-                    and end_str.replace("-", "").isdigit()
-                ):
-                    start_date = datetime.now()
-                    end_date = start_date
-                else:
-                    start_date = datetime.strptime(start_str, "%Y-%m-%d")
-                    end_date = datetime.strptime(end_str, "%Y-%m-%d")
-            except (ValueError, IndexError):
-                start_date = datetime.now()
-                end_date = start_date
-
-        # 목표 제목 정리
-        clean_title = (
-            goal_title.replace("내일", "")
-            .replace("오늘", "")
-            .replace("다음주", "")
-            .replace("다음달", "")
-            .replace("다음 주", "")
-            .replace("다음 달", "")
-            .replace("이번주", "")
-            .replace("이번달", "")
-            .replace("이번 주", "")
-            .replace("이번 달", "")
-            .strip()
-        )
-        clean_title = (
-            clean_title.replace("추가해줘", "").strip()
-        )
-
-        # AI 응답 생성
-        assistant_response = LLMFactory.get_response(
-            st.session_state.selected_model,
-            st.session_state.messages[0]["content"],
-            prompt,
-            st.session_state.session_id,
-            stream_handler=stream_handler,
-        )
-
-        st.session_state.messages.append(
-            {"role": "assistant", "content": assistant_response}
-        )
-
-        # 목표 추가
-        add_goal(
-            title=clean_title,
-            start_date=start_date,
-            end_date=end_date,
-            category_id=category_id,
-        )
-        st.success(
-            f"'{clean_title}'이(가) 목표로 추가되었습니다! 상세 내용은"
-            " 목표 목록에서 설정할 수 있습니다."
-        )
-
-    else:
-        # 일반 대화
-        chat_container = st.chat_message("assistant")  # 컨테이너를 직접 생성
-        stream_handler = StreamHandler(chat_container)
-        assistant_response = LLMFactory.get_response(
-            st.session_state.selected_model,
-            st.session_state.messages[0]["content"],
-            prompt,
-            st.session_state.session_id,
-            stream_handler=stream_handler,
-        )
-
-        st.session_state.messages.append(
-            {"role": "assistant", "content": assistant_response}
-        )

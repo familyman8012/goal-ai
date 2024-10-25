@@ -11,6 +11,7 @@ required_env_vars = [
     "DB_USERNAME",
     "DB_PASSWORD",
     "DB_NAME",
+    "PPLX_API_KEY",  # 추가
 ]
 
 for var in required_env_vars:
