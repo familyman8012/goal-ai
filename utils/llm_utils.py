@@ -65,7 +65,7 @@ class LLMFactory:
                 google_api_key=os.getenv("GOOGLE_API_KEY"),
                 model=f"gemini-{model_version}",
                 temperature=0.7,
-                streaming=True,
+                streaming=False,  # 제미니는 스트리밍 비활성화
             )
         else:
             raise ValueError(f"지원하지 않는 모델입니다: {model_name}")
@@ -81,15 +81,20 @@ class LLMFactory:
         memory = LLMFactory.get_memory(session_id)
         llm = LLMFactory.create_llm(model_name)
 
-        if stream_handler:
-            llm.callbacks = [stream_handler]
-
         messages = [SystemMessage(content=system_prompt)]
         chat_history = memory.chat_memory.messages
         messages.extend(chat_history)
         messages.append(HumanMessage(content=user_input))
 
-        response = llm.invoke(messages)
+        # 제미니 모델일 경우 스트리밍 없이 직접 표시
+        if model_name.startswith("gemini"):
+            response = llm.invoke(messages)
+            if stream_handler:
+                stream_handler.placeholder.markdown(response.content)
+        else:
+            if stream_handler:
+                llm.callbacks = [stream_handler]
+            response = llm.invoke(messages)
 
         memory.chat_memory.add_user_message(user_input)
         memory.chat_memory.add_ai_message(response.content)
@@ -105,12 +110,19 @@ class LLMFactory:
     ) -> str:
         llm = LLMFactory.create_llm(model_name)
 
-        if stream_handler:
-            llm.callbacks = [stream_handler]
-
         messages = [
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),
         ]
-        response = llm.invoke(messages)
+
+        # 제미니 모델일 경우 스트리밍 없이 직접 표시
+        if model_name.startswith("gemini"):
+            response = llm.invoke(messages)
+            if stream_handler:
+                stream_handler.placeholder.markdown(response.content)
+        else:
+            if stream_handler:
+                llm.callbacks = [stream_handler]
+            response = llm.invoke(messages)
+
         return response.content

@@ -6,11 +6,11 @@ from config import OPENAI_API_KEY
 from utils.llm_utils import LLMFactory, StreamHandler  # StreamHandler 추가
 import uuid
 
-st.title("AI 라이프 컨설턴트와 대화")
+st.title("목표 달성 GPT")
 st.markdown(
     """
 <p style='color: gray; font-size: 0.9em;'>
-💡 사용법: "커리어 카테고리에 개발공부 목표로 추가해줘" 와 같이 자연스럽게 대화해보세요.
+💡 사용법: "커리어에 ts 공부 추가해줘" 와 같이 자연스럽게 대화해보세요.
 </p>
 """,
     unsafe_allow_html=True,
@@ -58,15 +58,15 @@ model_options = {
     "Gemini-Flash": "gemini-1.5-flash-latest",
 }
 
-# 션 상태에 선택된 모델 저장 (기본값을 Gemini-Pro로 설정)
+# 션 상태에 선택된 모델 저장 (기본값을 Claude-3-Haiku로 설정)
 if "selected_model" not in st.session_state:
-    st.session_state.selected_model = model_options["Gemini-Pro"]
+    st.session_state.selected_model = model_options["Claude-3-Haiku"]
 
 selected_model = st.sidebar.selectbox(
     "사용할 AI 모델을 선택하세요",
     list(model_options.keys()),
     index=list(model_options.keys()).index(
-        "Gemini-Pro"
+        "Claude-3-Haiku"
     ),  # 기본값을 Gemini-Pro로 설정
 )
 
@@ -82,11 +82,12 @@ if "session_id" not in st.session_state:
 if prompt:
     intent_system_prompt = (
         "사용자의 메시지에서 목표 추가 의도와 카테고리를 파악하세요. "
-        "'커리어 카테고리에 개발공부 하는 거 목표로 추가해줘' 와 같은 형식이면 "
+        "'커리어에 개발공부 추가해줘' 또는 '개발공부 추가해줘' 와 같은 형식이면 "
         "'YES:목표내용:카테고리명' 형식으로, "
-        "'개발 공부하는 거 목표로 해줘' 와 같이 카테고리가 없으면 "
-        "'YES:목표내용:���체' 형식으로, "
-        "목표 추가 의도가 없으면 'NO'로만 답하세요."
+        "예를 들어 '커리어에 ts 공부 추가해줘'는 'YES:ts 공부:커리어'로, "
+        "'ts 공부 추가해줘'는 'YES:ts 공부:전체'로, "
+        "목표 추가 의도가 없으면 'NO'로만 답하세요. "
+        "단, '추가해줘'라는 단어가 있어야만 목표 추가로 인식합니다."
     )
 
     # single_get_response 사용으로 변경 (컨텍스트가 필요없는 단일 요청이므로)
@@ -114,7 +115,7 @@ if prompt:
                 category_id = new_category.id
 
         # GPT 응답
-        chat_container = st.chat_message("assistant")  # 컨테이너를 직접 생성
+        chat_container = st.chat_message("assistant")
         stream_handler = StreamHandler(chat_container)
 
         # 날짜 확인을 위한 전용 시스템 프롬프트
@@ -171,7 +172,7 @@ if prompt:
             .strip()
         )
         clean_title = (
-            clean_title.replace("목표 추가", "").replace("목표로", "").strip()
+            clean_title.replace("추가해줘", "").strip()
         )
 
         # AI 응답 생성

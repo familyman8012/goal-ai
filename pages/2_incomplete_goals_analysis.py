@@ -4,9 +4,15 @@ import pandas as pd
 import openai
 from database import get_goals, get_goal_analysis, add_goal_analysis
 from config import OPENAI_API_KEY
-from utils.llm_utils import LLMFactory
+from utils.llm_utils import LLMFactory, StreamHandler  # StreamHandler 추가
+import uuid
 
 st.title("미달성 목표 분석")
+
+# 상단에 uuid import 추가
+# session_id 생성 (앱 시작시)
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
 
 # 전체 목표 데이터 가져오기
 goals_df = get_goals()
@@ -101,10 +107,16 @@ else:
                         마치 친한 고객님에게 이야기하듯이 따뜻하게 이야기해주세요.
                         구체적인 상황과 감정을 상상하면서, 앞으로의 가능성도 함께 이야기해주세요."""
 
+                        # StreamHandler 초기화
+                        chat_container = st.empty()
+                        stream_handler = StreamHandler(chat_container)
+
                         return LLMFactory.get_response(
                             st.session_state.selected_model,
                             system_prompt,
                             user_prompt,
+                            st.session_state.session_id,
+                            stream_handler=stream_handler
                         )
 
                     if existing_analysis:

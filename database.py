@@ -6,7 +6,7 @@ from sqlalchemy import (
     String,
     Date,
     DateTime,
-    Text,
+    Text
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -58,6 +58,18 @@ class GoalAnalysis(Base):
     goals_analyzed = Column(String)  # 분석된 목표들의 ID를 저장 (쉼표로 구분)
     analysis_result = Column(Text)  # GPT의 분석 결과
     created_at = Column(DateTime, default=datetime.now)
+
+
+class Board(Base):
+    __tablename__ = "boards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    content = Column(Text)
+    image_path = Column(String)  # 이미지 경로 저장
+    board_type = Column(String, nullable=False)  # 'info' 또는 'idea'
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
 # 데이터베이스 테이블 생성
@@ -226,6 +238,59 @@ def delete_goal(goal_id: int):
     except Exception as e:
         db.rollback()
         print(f"목표 삭제 중 오류 발생: {e}")
+        return False
+    finally:
+        db.close()
+
+
+# 게시판 관련 CRUD 함수들
+def add_post(title: str, content: str, board_type: str, image_path: str = None):
+    db = SessionLocal()
+    try:
+        post = Board(title=title, content=content, board_type=board_type, image_path=image_path)
+        db.add(post)
+        db.commit()
+        db.refresh(post)
+        return post
+    finally:
+        db.close()
+
+def get_posts(board_type: str):
+    db = SessionLocal()
+    try:
+        query = f"SELECT * FROM boards WHERE board_type = '{board_type}' ORDER BY created_at DESC"
+        return pd.read_sql_query(query, engine)
+    finally:
+        db.close()
+
+def get_post(post_id: int):
+    db = SessionLocal()
+    try:
+        return db.query(Board).filter(Board.id == post_id).first()
+    finally:
+        db.close()
+
+def update_post(post_id: int, title: str, content: str, image_path: str = None):
+    db = SessionLocal()
+    try:
+        post = db.query(Board).filter(Board.id == post_id).first()
+        post.title = title
+        post.content = content
+        if image_path:  # 새 이미지가 있을 경우에만 업데이트
+            post.image_path = image_path
+        db.commit()
+        return post
+    finally:
+        db.close()
+
+def delete_post(post_id: int):
+    db = SessionLocal()
+    try:
+        post = db.query(Board).filter(Board.id == post_id).first()
+        if post:
+            db.delete(post)
+            db.commit()
+            return True
         return False
     finally:
         db.close()
