@@ -1,10 +1,11 @@
 import streamlit as st
 import openai
 from datetime import datetime
-from database import add_goal, get_categories, add_category
+from database import add_goal, get_categories, add_category, add_recurring_goals
 from config import OPENAI_API_KEY
 from utils.llm_utils import LLMFactory, StreamHandler  # StreamHandler 추가
 import uuid
+from utils.date_utils import parse_weekdays, generate_recurring_dates
 
 st.title("목표 달성 GPT")
 st.markdown(
@@ -80,22 +81,51 @@ if "session_id" not in st.session_state:
 
 # 목표 추가 의도 확인 및 카테고리 파악
 if prompt:
-    intent_system_prompt = (
-        "사용자의 메시지에서 목표 추가 의도와 카테고리를 파악하세요. "
-        "'커리어에 개발공부 추가해줘' 또는 '개발공부 추가해줘' 와 같은 형식이면 "
-        "'YES:목표내용:카테고리명' 형식으로, "
-        "예를 들어 '커리어에 ts 공부 추가해줘'는 'YES:ts 공부:커리어'로, "
-        "'ts 공부 추가해줘'는 'YES:ts 공부:전체'로, "
-        "목표 추가 의도가 없으면 'NO'로만 답하세요. "
-        "단, '추가해줘'라는 단어가 있어야만 목표 추가로 인식합니다."
-    )
+    intent_system_prompt = """사용자의 메시지에서 목표 추가 의도와 카테고리를 파악하세요. 
+'커리어에 개발공부 추가해줘' 또는 '개발공부 추가해줘' 와 같은 형식이면 
+'YES:목표내용:카테고리명' 형식으로, 
+예를 들어 '커리어에 ts 공부 추가해줘'는 'YES:ts 공부:커리어'로, 
+'ts 공부 추가해줘'는 'YES:ts 공부:전체'로,
+'매주 화 목 토요일에 운동하기'와 같은 정기적인 일정은 'RECURRING:운동하기:전체'로,
+목표 추가 의도가 없으면 'NO'로만 답하세요. 
+단, '추가해줘'라는 단어가 있어야만 목표 추가로 인식합니다."""
 
     # single_get_response 사용으로 변경 (컨텍스트가 필요없는 단일 요청이므로)
     intent_response = LLMFactory.single_get_response(
         st.session_state.selected_model, intent_system_prompt, prompt
     )
 
-    if intent_response.startswith("YES:"):
+    if intent_response.startswith("RECURRING:"):
+        parts = intent_response.split(":")
+        goal_title = parts[1].strip()
+        category_name = parts[2].strip()
+        
+        # 요일 파싱
+        weekdays = parse_weekdays(prompt)
+        if weekdays:
+            # 날짜 생성
+            dates = generate_recurring_dates(weekdays)
+            
+            # 카테고리 처리
+            category_id = None
+            if category_name != "전체":
+                category_match = categories_df[categories_df["name"] == category_name]
+                if not category_match.empty:
+                    category_id = category_match.iloc[0]["id"]
+                else:
+                    new_category = add_category(category_name)
+                    category_id = new_category.id
+            
+            # 정기 목표 추가
+            add_recurring_goals(
+                title=goal_title,
+                dates=dates,
+                category_id=category_id
+            )
+            
+            st.success(f"'{goal_title}'이(가) {len(dates)}개의 날짜에 추가되었습니다!")
+            
+    elif intent_response.startswith("YES:"):
         parts = intent_response.split(":")
         goal_title = parts[1].strip()
         category_name = parts[2].strip()

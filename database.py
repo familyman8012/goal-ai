@@ -294,3 +294,28 @@ def delete_post(post_id: int):
         return False
     finally:
         db.close()
+
+
+def add_recurring_goals(title, dates, trigger_action="", importance=5, memo="", status="진행 전", category_id=None):
+    """여러 날짜에 대해 동일한 목표를 추가하는 함수"""
+    db = get_db()
+    try:
+        for date in dates:
+            goal = Goal(
+                title=title,
+                start_date=date,
+                end_date=date,
+                trigger_action=trigger_action,
+                importance=importance,
+                memo=memo,
+                status=status,
+                category_id=category_id,
+            )
+            db.add(goal)
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
