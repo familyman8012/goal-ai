@@ -32,8 +32,8 @@ class Goal(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
-    start_date = Column(Date)
-    end_date = Column(Date)
+    start_date = Column(DateTime)  # Date에서 DateTime으로 변경
+    end_date = Column(DateTime)    # Date에서 DateTime으로 변경
     trigger_action = Column(String)
     importance = Column(Integer)
     memo = Column(Text)

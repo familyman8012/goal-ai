@@ -4,10 +4,20 @@ import pandas as pd
 import openai
 from database import get_goals, get_goal_analysis, add_goal_analysis
 from config import OPENAI_API_KEY
-from utils.llm_utils import LLMFactory, StreamHandler  # StreamHandler 추가
+from utils.llm_utils import LLMFactory, StreamHandler
 import uuid
+from utils.session_utils import clear_goal_session
 
-st.title("미달성 목표 분석")
+# 페이지 진입 시 세션 정리
+clear_goal_session()
+
+st.set_page_config(
+    page_title="미달성 목표 분석",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items=None
+)
 
 # 상단에 uuid import 추가
 # session_id 생성 (앱 시작시)
@@ -66,11 +76,15 @@ else:
                     )
                     unique_key = f"incomplete_{goal['id']}_{period}_{idx}"
                     if st.button(
-                        f"❌ {goal['title']} ({start_date}-{end_date})",
-                        key=unique_key,
+                        f"❌ {goal['title']} ({start_date}-{end_date})", key=unique_key
                     ):
-                        st.query_params["goal_id"] = str(goal["id"])
-                        st.switch_page("pages/3_goal_detail.py")
+                        try:
+                            goal_id = int(goal["id"])
+                            # 세션에 goal_id 저장
+                            st.session_state.selected_goal_id = goal_id
+                            st.switch_page("pages/3_goal_detail.py")
+                        except Exception as e:
+                            st.error(f"Error processing goal ID: {str(e)}")
 
                 # GPT 분석
                 important_goals = filtered_df.nlargest(3, "importance")
@@ -78,7 +92,7 @@ else:
                     # 분석할 목표 ID 목록
                     goal_ids = important_goals.index.tolist()
 
-                    # 기존 분석 결과 확인
+                    # 기존 분석 결과 인
                     existing_analysis = get_goal_analysis(period, goal_ids)
 
                     # GPT 메시지 제목과 재생성 버튼을 나란히 배치
@@ -99,7 +113,7 @@ else:
                         - 1. 2. 이런식의 나열하듯 딱딱한 말을 하지 않고 구어체로 편지를 쓰듯 전달합니다.
                         - 희망적이고 긍정적인 메시지로 마무리합니다.
                         - 어떻게 하면 실천을 할 수 있을지에 대한 실행지침도 알려줍니다.
-                        - 고객님이기때문에 친근하고 긍정적이고 때로 위트있지만 정중함도 곁들입니다.
+                        - 고객님이기때문에 친근하고 정적이고 때로 위트있지만 정중함도 곁들입니다.
                         - 적절하게 다양한 이모티콘을 섞어서 표현합니다."""
 
                         user_prompt = f"""다음은 달성하지 못한 소중한 목표들이에요:\n{goals_text}\n
@@ -123,7 +137,7 @@ else:
                         # 기존 분석 결과 표시
                         st.write(existing_analysis.analysis_result)
 
-                        if regenerate:  # 재생성 버튼이 클릭되었을 때
+                        if regenerate:  # 재생성 버튼 클릭되었을 때
                             goals_text = "\n".join(
                                 [
                                     f"- {row['title']} (중요도:"

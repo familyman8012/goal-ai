@@ -1,12 +1,30 @@
 import streamlit as st
 import openai
-from datetime import datetime
+from datetime import datetime, timedelta
 from database import add_goal, get_categories, add_category, add_recurring_goals, add_post
 from config import OPENAI_API_KEY
-from utils.llm_utils import LLMFactory, StreamHandler  # StreamHandler 추가
+from utils.llm_utils import LLMFactory, StreamHandler
 import uuid
 from utils.date_utils import parse_weekdays, generate_recurring_dates
 from utils.pplx_utils import search_with_pplx
+from utils.menu_utils import show_menu  # 메뉴 컴포넌트 import
+import re
+from utils.session_utils import clear_goal_session
+
+# 페이지 설정 전에 세션 정리
+clear_goal_session()
+
+# 페이지 설정
+st.set_page_config(
+    page_title="목표 달성 GPT",
+    page_icon="🎯",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items=None  # 기본 메뉴 완전히 제거
+)
+
+# 메뉴 표시
+show_menu()
 
 st.title("목표 달성 GPT")
 st.markdown(
@@ -31,7 +49,7 @@ if "messages" not in st.session_state:
             2. 사용자의 고민이나 이야기에서 목표로 발전시킬만한 내용이 있다면,
                자연스게 "그럼 [구체적인 목표]를 목표로 추가해보는 건 어떠세요?" 라고 제안합니다.
             3. 단, 모든 대화에서 목표를 제안하지 않고, 대화의 흐름을 보며 적절한 때에만 제안합니다.
-            4. 사용자가 직접 목표 추가를 요청할 때는 공감과 지지를 보내주세요.
+            4. 사용자가 직접 목표 추가를 요청할 때는 공감과 ��지를 보내주세요.
             5. 용자가 언급하는 날짜를 파악하여 목표의 시작일과 종료일을 설정해주세요.
             
             이전 대화 내용을 잘 기억하고 참조하여, 마치 실제 상담사처럼 자연스러운 대화를 이어나가세요.""",
@@ -56,13 +74,12 @@ if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
 
     # 정확히 '검색해줘'로 끝나는 경우에만 PPLX API 호출
     if prompt.endswith("검색해줘"):
-        global last_search_result, last_search_query
         search_query = prompt[:-4].strip()  # "검색해줘" 제거
         search_result = search_with_pplx(search_query)
         
-        # 검색 결과를 변수에 저장
-        last_search_result = search_result
-        last_search_query = search_query
+        # 검색 결과를 세션 상태에 저장
+        st.session_state.last_search_result = search_result
+        st.session_state.last_search_query = search_query
         
         chat_container = st.chat_message("assistant")
         chat_container.markdown(search_result)
@@ -80,11 +97,11 @@ if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
         st.session_state.messages[0]["content"] += "\n\n" + context_update
     
     # 정보 게시판에 올리기 요청 처리
-    elif "정보 게시판에" in prompt and "올려줘" in prompt and last_search_result:
+    elif "정보 게시판에" in prompt and "올려줘" in prompt and st.session_state.get("last_search_result"):
         chat_container = st.chat_message("assistant")
         
         # 제목 추출 로직
-        title = last_search_query  # 기본값으로 검색어 사용
+        title = st.session_state.last_search_query  # 기본값으로 검색어 사용
         if "제목은" in prompt and "로" in prompt:
             title_start = prompt.find("제목은") + 3
             title_end = prompt.find("로", title_start)
@@ -92,12 +109,12 @@ if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
                 title = prompt[title_start:title_end].strip()
         
         try:
-            add_post(title, last_search_result, "info")
+            add_post(title, st.session_state.last_search_result, "info")
             chat_container.markdown("✅ 검색 결과가 정보 게시판에 저장되었습니다.")
             
             # 저장 후 검색 결과 초기화
-            last_search_result = None
-            last_search_query = None
+            st.session_state.last_search_result = None
+            st.session_state.last_search_query = None
         except Exception as e:
             chat_container.markdown(f"❌ 게시판 저장 중 오류가 발생했습니다: {str(e)}")
     
@@ -127,22 +144,90 @@ if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
             chat_container.markdown(f"❌ 게시판 저장 중 오류가 발생했습니다: {str(e)}")
     
     else:
-        # 일반 대화 처리
-        chat_container = st.chat_message("assistant")
-        stream_handler = StreamHandler(chat_container)
-        
-        # 일반 대화 응답 처리
-        assistant_response = LLMFactory.get_response(
-            st.session_state.selected_model,
-            st.session_state.messages[0]["content"],
-            prompt,
-            st.session_state.session_id,
-            stream_handler=stream_handler,
-        )
+        # 날짜 처리를 위한 함수 추가
+        def parse_date_from_text(text):
+            today = datetime.now().date()
+            
+            # "오늘" 처리
+            if "오늘" in text:
+                return today
+            
+            # "내일" 처리
+            if "내일" in text:
+                return today + timedelta(days=1)
+                
+            # "내일모레" 처리
+            if "내일모레" in text:
+                return today + timedelta(days=2)
+                
+            # "다음주" 처리
+            if "다음주" in text:
+                return today + timedelta(days=7)
+                
+            # 특정 날짜 처리 (예: "10월 28일")
+            date_pattern = r'(\d{1,2})월\s*(\d{1,2})일'
+            match = re.search(date_pattern, text)
+            if match:
+                month, day = map(int, match.groups())
+                year = today.year
+                # 지정된 날짜가 오늘보다 이전이면 내년으로 설정
+                try:
+                    date = datetime(year, month, day).date()
+                    if date < today:
+                        date = datetime(year + 1, month, day).date()
+                    return date
+                except ValueError:
+                    return today
+                    
+            return today
 
-        st.session_state.messages.append(
-            {"role": "assistant", "content": assistant_response}
-        )
+        # 목표 추가 요청 처리
+        if "추가해줘" in prompt:
+            # 목표 제목 추출 (날짜 관련 텍스트와 "추가해줘" 제외)
+            title = prompt.replace("추가해줘", "").strip()
+            title = re.sub(r'(오늘|내일|내일모레|다음주|\d+월\s*\d+일에?)\s*', '', title).strip()
+            
+            # 날짜 파싱
+            target_date = parse_date_from_text(prompt)
+            
+            try:
+                # 목표 추가
+                add_goal(
+                    title=title,
+                    start_date=target_date,
+                    end_date=target_date,
+                    status="진행 전"
+                )
+                
+                chat_container = st.chat_message("assistant")
+                success_message = f"✅ '{title}' 목표가 {target_date.strftime('%Y년 %m월 %d일')}에 추가되었습니다!"
+                chat_container.success(success_message)
+                
+                # 대화 기록에 추가
+                st.session_state.messages.append({"role": "assistant", "content": success_message})
+                
+            except Exception as e:
+                chat_container = st.chat_message("assistant")
+                error_message = f"❌ 목표 추가 중 오류가 발생했습니다: {str(e)}"
+                chat_container.error(error_message)
+                st.session_state.messages.append({"role": "assistant", "content": error_message})
+        
+        else:
+            # 기존의 일반 대화 처리 코드...
+            chat_container = st.chat_message("assistant")
+            stream_handler = StreamHandler(chat_container)
+            
+            assistant_response = LLMFactory.get_response(
+                st.session_state.selected_model,
+                st.session_state.messages[0]["content"],
+                prompt,
+                st.session_state.session_id,
+                stream_handler=stream_handler,
+            )
+
+            st.session_state.messages.append(
+                {"role": "assistant", "content": assistant_response}
+            )
 
 # 모델 선택 드롭다운 추가
 st.sidebar.title("AI 모델 설정")
@@ -155,7 +240,7 @@ model_options = {
     "Gemini-Flash": "gemini-1.5-flash-latest",
 }
 
-# 션 상태에 선택된 모델 저장 (기본값을 Claude-3-Haiku로 설정)
+# 션 상태에 선택된 모델 저장 (기본값을 Claude-3-Haiku로 정)
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = model_options["Claude-3-Haiku"]
 

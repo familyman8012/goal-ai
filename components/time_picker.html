@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Time Picker</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        .time-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <input id="timePicker" type="text" class="time-input" placeholder="시간을 선택하거나 입력하세요 (예: 14:30)">
+    
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        const fp = flatpickr("#timePicker", {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "H:i",
+            time_24hr: true,
+            defaultDate: "%s",
+            minuteIncrement: 1,
+            onChange: function(selectedDates, dateStr) {
+                const event = new CustomEvent("streamlit:setComponentValue", {
+                    detail: dateStr
+                });
+                window.parent.document.dispatchEvent(event);
+            }
+        });
+    </script>
+</body>
+</html>

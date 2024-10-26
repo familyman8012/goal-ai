@@ -5,6 +5,20 @@ from database import (
     update_category,
     delete_category,
 )
+from utils.session_utils import clear_goal_session
+
+# 페이지 진입 시 세션 정리
+clear_goal_session()
+
+st.set_page_config(
+    page_title="카테고리 관리",
+    page_icon="📁",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items=None
+)
+
+# 나머지 코드는 동일...
 
 st.title("카테고리 관리")
 

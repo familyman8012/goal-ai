@@ -1,4 +1,16 @@
 import streamlit as st
+from utils.session_utils import clear_goal_session
+
+# 페이지 진입 시 세션 정리
+clear_goal_session()
+
+st.set_page_config(
+    page_title="사용자 가이드",
+    page_icon="📖",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items=None
+)
 
 st.title("🎯 사용자 가이드")
 

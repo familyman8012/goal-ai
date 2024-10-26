@@ -3,6 +3,34 @@ from datetime import datetime, timedelta
 import pandas as pd
 from database import get_goals, get_categories, delete_goal
 
+# 시간 포맷팅 함수 추가 - 파일 상단으로 이동
+def format_time(dt):
+    """datetime을 '오전/오후 시:분' 형식으로 변환"""
+    if pd.isnull(dt):
+        return ""
+    dt = pd.to_datetime(dt)
+    hour = dt.hour
+    if hour == 0:
+        return f"오전 12:{dt.strftime('%M')}"
+    elif hour < 12:
+        return f"오전 {hour}:{dt.strftime('%M')}"
+    elif hour == 12:
+        return f"오후 12:{dt.strftime('%M')}"
+    else:
+        return f"오후 {hour-12}:{dt.strftime('%M')}"
+
+st.set_page_config(
+    page_title="목표 목록",
+    page_icon="📋",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items=None
+)
+
+# 페이지 진입 시 목표 관련 세션 상태 정리
+st.session_state.pop('current_goal_id', None)
+st.session_state.pop('goals_df', None)
+
 st.title("진행중/완료 목표 목록")
 
 # 전체 목표 데이터 가져오기
@@ -16,7 +44,6 @@ else:
 
     # 각 기간별 필터링된 데이터프레임 미리 생성
     filtered_dfs = {
-        "전체": goals_df,
         "오늘": goals_df[
             # 오늘 시작하는 목표
             (
@@ -26,7 +53,7 @@ else:
                 )
             )
             |
-            # 오늘 끝나는 목표
+            # 오늘 끝하는 목표
             (
                 (
                     pd.to_datetime(goals_df["end_date"]).dt.date
@@ -38,6 +65,39 @@ else:
             (
                 (pd.to_datetime(goals_df["start_date"]) <= current_time)
                 & (pd.to_datetime(goals_df["end_date"]) >= current_time)
+            )
+        ],
+        "내일": goals_df[
+            (
+                pd.to_datetime(goals_df["start_date"]).dt.date
+                == (current_time + timedelta(days=1)).date()
+            )
+            |
+            (
+                pd.to_datetime(goals_df["end_date"]).dt.date
+                == (current_time + timedelta(days=1)).date()
+            )
+        ],
+        "2일 후": goals_df[
+            (
+                pd.to_datetime(goals_df["start_date"]).dt.date
+                == (current_time + timedelta(days=2)).date()
+            )
+            |
+            (
+                pd.to_datetime(goals_df["end_date"]).dt.date
+                == (current_time + timedelta(days=2)).date()
+            )
+        ],
+        "3일 후": goals_df[
+            (
+                pd.to_datetime(goals_df["start_date"]).dt.date
+                == (current_time + timedelta(days=3)).date()
+            )
+            |
+            (
+                pd.to_datetime(goals_df["end_date"]).dt.date
+                == (current_time + timedelta(days=3)).date()
             )
         ],
         "1주": goals_df[
@@ -100,6 +160,7 @@ else:
                 & (pd.to_datetime(goals_df["end_date"]) >= current_time)
             )
         ],
+        "전체": goals_df,
     }
 
     # 카테고리 필터를 탭 위에 배치
@@ -121,53 +182,76 @@ else:
 
     for tab, (period, filtered_df) in zip(tabs, filtered_dfs.items()):
         with tab:
+            # 진행 중인 목표와 완료된 목표를 나란히 표시하기 위한 컬럼 생성
+            col1, col2 = st.columns(2)
+
             # 진행 중인 목표
-            st.subheader("진행 중인 목표")
-            incomplete_goals = filtered_df[filtered_df["status"] != "완료"]
-            if incomplete_goals.empty:
-                st.info("진행 중인 목표가 없습니다.")
-            else:
-                for idx, goal in incomplete_goals.iterrows():
-                    start_date = pd.to_datetime(goal["start_date"]).strftime(
-                        "%Y-%m-%d"
-                    )
+            with col1:
+                st.subheader("진행 중인 목표")
+                incomplete_goals = filtered_df[filtered_df["status"] != "완료"]
+                if incomplete_goals.empty:
+                    st.info("진행 중인 목표가 없습니다.")
+                else:
+                    for idx, goal in incomplete_goals.iterrows():
+                        start_datetime = pd.to_datetime(goal["start_date"])
+                        end_datetime = pd.to_datetime(goal["end_date"])
+                        
+                        # 날짜와 시간 포맷팅
+                        date_str = start_datetime.strftime("%Y-%m-%d")
+                        start_time_str = format_time(start_datetime)
+                        end_time_str = format_time(end_datetime)
+                        time_str = f"{start_time_str} - {end_time_str}"
 
-                    # 목표 제목과 삭제 버튼을 나란히 배치하기 위한 컬럼 생성
-                    col1, col2 = st.columns([6, 1])
+                        # 목표 제목과 삭제 버튼을 나란히 배치하기 위한 컬럼 생성
+                        goal_col1, goal_col2 = st.columns([6, 1])
 
-                    with col1:
-                        unique_key = f"incomplete_{goal['id']}_{period}_{idx}"
-                        if st.button(
-                            f"📌 {goal['title']} ({start_date})",
-                            key=unique_key,
-                        ):
-                            st.query_params["goal_id"] = str(goal["id"])
-                            st.switch_page("pages/3_goal_detail.py")
+                        with goal_col1:
+                            unique_key = f"incomplete_{goal['id']}_{period}_{idx}"
+                            if st.button(f"📌 {goal['title']} ({date_str} {time_str})", key=unique_key):
+                                try:
+                                    goal_id = int(goal['id'])
+                                    st.session_state.selected_goal_id = goal_id
+                                    st.switch_page("pages/3_goal_detail.py")
+                                except Exception as e:
+                                    st.error(f"Error processing goal ID: {str(e)}")
 
-                    with col2:
-                        delete_key = f"delete_{goal['id']}_{period}_{idx}"
-                        if st.button("✕", key=delete_key):
-                            if delete_goal(goal["id"]):
-                                st.success(
-                                    f"'{goal['title']}' 목표가 삭제되었습니다."
-                                )
-                                st.rerun()
-                            else:
-                                st.error("목표 삭제 중 오류가 발생했습니다.")
+                        with goal_col2:
+                            delete_key = f"delete_{goal['id']}_{period}_{idx}"
+                            if st.button("✕", key=delete_key):
+                                if delete_goal(goal["id"]):
+                                    st.success(
+                                        f"'{goal['title']}' 목표가 삭제되었습니다."
+                                    )
+                                    st.rerun()
+                                else:
+                                    st.error("목표 삭제 중 오류가 발생했습니다.")
 
             # 완료된 목표
-            st.subheader("완료된 목표")
-            complete_goals = filtered_df[filtered_df["status"] == "완료"]
-            if complete_goals.empty:
-                st.info("완료된 목표가 없습니다.")
-            else:
-                for idx, goal in complete_goals.iterrows():
-                    start_date = pd.to_datetime(goal["start_date"]).strftime(
-                        "%Y-%m-%d"
-                    )
-                    unique_key = f"complete_{goal['id']}_{period}_{idx}"
-                    if st.button(
-                        f"✅ {goal['title']} ({start_date})", key=unique_key
-                    ):
-                        st.query_params["goal_id"] = str(goal["id"])
-                        st.switch_page("pages/3_goal_detail.py")
+            with col2:
+                st.subheader("완료된 목표")
+                complete_goals = filtered_df[filtered_df["status"] == "완료"]
+                if complete_goals.empty:
+                    st.info("완료된 목표가 없습니다.")
+                else:
+                    for idx, goal in complete_goals.iterrows():
+                        start_datetime = pd.to_datetime(goal["start_date"])
+                        end_datetime = pd.to_datetime(goal["end_date"])
+                        
+                        # 날짜와 시간 포맷팅
+                        date_str = start_datetime.strftime("%Y-%m-%d")
+                        start_time_str = format_time(start_datetime)
+                        end_time_str = format_time(end_datetime)
+                        time_str = f"{start_time_str} - {end_time_str}"
+
+                        unique_key = f"complete_{goal['id']}_{period}_{idx}"
+                        if st.button(
+                            f"✅ {goal['title']} ({date_str} {time_str})", 
+                            key=unique_key
+                        ):
+                            try:
+                                goal_id = int(goal['id'])
+                                # 세션에 goal_id 저장
+                                st.session_state.selected_goal_id = goal_id
+                                st.switch_page("pages/3_goal_detail.py")
+                            except Exception as e:
+                                st.error(f"Error processing goal ID: {str(e)}")
