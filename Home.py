@@ -1,7 +1,7 @@
 import streamlit as st
 import openai
 from datetime import datetime
-from database import add_goal, get_categories, add_category, add_recurring_goals
+from database import add_goal, get_categories, add_category, add_recurring_goals, add_post
 from config import OPENAI_API_KEY
 from utils.llm_utils import LLMFactory, StreamHandler  # StreamHandler 추가
 import uuid
@@ -43,16 +43,26 @@ for message in st.session_state.messages[1:]:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-# 사용자 입력 처리
+# 사용자 입력 처리 부분 수정
 if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)
 
+    # 검색 결과를 세션에 저장
+    if "last_search_result" not in st.session_state:
+        st.session_state.last_search_result = None
+        st.session_state.last_search_query = None
+
     # 정확히 '검색해줘'로 끝나는 경우에만 PPLX API 호출
     if prompt.endswith("검색해줘"):
+        global last_search_result, last_search_query
         search_query = prompt[:-4].strip()  # "검색해줘" 제거
         search_result = search_with_pplx(search_query)
+        
+        # 검색 결과를 변수에 저장
+        last_search_result = search_result
+        last_search_query = search_query
         
         chat_container = st.chat_message("assistant")
         chat_container.markdown(search_result)
@@ -69,10 +79,59 @@ if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
         
         st.session_state.messages[0]["content"] += "\n\n" + context_update
     
+    # 정보 게시판에 올리기 요청 처리
+    elif "정보 게시판에" in prompt and "올려줘" in prompt and last_search_result:
+        chat_container = st.chat_message("assistant")
+        
+        # 제목 추출 로직
+        title = last_search_query  # 기본값으로 검색어 사용
+        if "제목은" in prompt and "로" in prompt:
+            title_start = prompt.find("제목은") + 3
+            title_end = prompt.find("로", title_start)
+            if title_start != -1 and title_end != -1:
+                title = prompt[title_start:title_end].strip()
+        
+        try:
+            add_post(title, last_search_result, "info")
+            chat_container.markdown("✅ 검색 결과가 정보 게시판에 저장되었습니다.")
+            
+            # 저장 후 검색 결과 초기화
+            last_search_result = None
+            last_search_query = None
+        except Exception as e:
+            chat_container.markdown(f"❌ 게시판 저장 중 오류가 발생했습니다: {str(e)}")
+    
+    # 아이디어 게시판에 올리기 요청 처리
+    elif "아이디어 게시판에" in prompt and "올려줘" in prompt:
+        chat_container = st.chat_message("assistant")
+        
+        # 제목 추출 로직
+        title = "새로운 아이디어"  # 기본값
+        content = prompt  # 전체 내용을 저장
+        
+        if "제목은" in prompt and "로" in prompt:
+            title_start = prompt.find("제목은") + 3
+            title_end = prompt.find("로", title_start)
+            if title_start != -1 and title_end != -1:
+                title = prompt[title_start:title_end].strip()
+                # 제목 부분을 내용에서 제거
+                content = content.replace(f"제목은 {title}로", "")
+        
+        # "아이디어 게시판에 올려줘" 부분 제거
+        content = content.replace("아이디어 게시판에 올려줘", "").strip()
+        
+        try:
+            add_post(title, content, "idea")
+            chat_container.markdown("✅ 아이디어가 게시판에 저장되었습니다.")
+        except Exception as e:
+            chat_container.markdown(f"❌ 게시판 저장 중 오류가 발생했습니다: {str(e)}")
+    
     else:
         # 일반 대화 처리
         chat_container = st.chat_message("assistant")
         stream_handler = StreamHandler(chat_container)
+        
+        # 일반 대화 응답 처리
         assistant_response = LLMFactory.get_response(
             st.session_state.selected_model,
             st.session_state.messages[0]["content"],
