@@ -40,7 +40,8 @@ else:
                 == (current_time - timedelta(days=1)).date()
             )
             & (goals_df["status"] != "완료")
-        ],
+        ].sort_values(by='start_date', ascending=False),  # 시간순 내림차순 정렬
+        
         "지난 주": goals_df[
             (
                 pd.to_datetime(goals_df["end_date"])
@@ -48,15 +49,16 @@ else:
             )
             & (pd.to_datetime(goals_df["end_date"]) < current_time)
             & (goals_df["status"] != "완료")
-        ],
+        ].sort_values(by='start_date', ascending=False),  # 시간순 내림차순 정렬
+        
         "지난 달": goals_df[
             (
                 pd.to_datetime(goals_df["end_date"])
                 >= (current_time - timedelta(days=30))
             )
             & (pd.to_datetime(goals_df["end_date"]) < current_time)
-            & (goals_df["status"] != "완료")  # 올바른 상태값
-        ],
+            & (goals_df["status"] != "완료")
+        ].sort_values(by='start_date', ascending=False),  # 시간순 내림차순 정렬
     }
 
     tabs = st.tabs(list(filtered_dfs.keys()))

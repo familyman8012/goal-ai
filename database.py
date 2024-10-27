@@ -6,7 +6,8 @@ from sqlalchemy import (
     String,
     Date,
     DateTime,
-    Text
+    Text,
+    func
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -72,6 +73,24 @@ class Board(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
+class Link(Base):
+    __tablename__ = "links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    site_name = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class UserProfile(Base):
+    __tablename__ = "user_profile"
+    
+    id = Column(Integer, primary_key=True)
+    content = Column(Text)  # 전체 프로필 내용을 저장할 필드 추가
+    consultant_style = Column(Text)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
 # 데이터베이스 테이블 생성
 Base.metadata.create_all(bind=engine)
 
@@ -97,6 +116,7 @@ def add_goal(
 ):
     db = get_db()
     try:
+        # category_id를 int로 변환
         if category_id is not None:
             category_id = int(category_id)
         goal = Goal(
@@ -123,7 +143,8 @@ def add_goal(
 def get_goals():
     db = SessionLocal()
     try:
-        query = "SELECT * FROM goals"
+        # start_date를 기준으로 내림차순(DESC) 정렬
+        query = "SELECT * FROM goals ORDER BY start_date ASC"
         return pd.read_sql_query(query, engine)
     except Exception as e:
         print(f"목표 조회 중 오류 발생: {e}")
@@ -137,6 +158,9 @@ def update_goal(goal_id, **kwargs):
     try:
         goal = db.query(Goal).filter(Goal.id == goal_id).first()
         for key, value in kwargs.items():
+            # category_id를 int로 변환
+            if key == 'category_id' and value is not None:
+                value = int(value)
             setattr(goal, key, value)
         db.commit()
     finally:
@@ -319,3 +343,123 @@ def add_recurring_goals(title, dates, trigger_action="", importance=5, memo="", 
         raise e
     finally:
         db.close()
+
+# CRUD 함수 추가
+def add_link(site_name: str, url: str):
+    db = SessionLocal()
+    try:
+        link = Link(site_name=site_name, url=url)
+        db.add(link)
+        db.commit()
+        db.refresh(link)
+        return link
+    finally:
+        db.close()
+
+def get_links():
+    db = SessionLocal()
+    try:
+        query = "SELECT * FROM links ORDER BY created_at DESC"
+        return pd.read_sql_query(query, engine)
+    finally:
+        db.close()
+
+def get_link(link_id: int):
+    db = SessionLocal()
+    try:
+        return db.query(Link).filter(Link.id == link_id).first()
+    finally:
+        db.close()
+
+def update_link(link_id: int, site_name: str, url: str):
+    db = SessionLocal()
+    try:
+        link = db.query(Link).filter(Link.id == link_id).first()
+        link.site_name = site_name
+        link.url = url
+        db.commit()
+        return link
+    finally:
+        db.close()
+
+def delete_link(link_id: int):
+    db = SessionLocal()
+    try:
+        link = db.query(Link).filter(Link.id == link_id).first()
+        if link:
+            db.delete(link)
+            db.commit()
+            return True
+        return False
+    finally:
+        db.close()
+
+# 사용자 프로필 관련 함수들
+def get_user_profile():
+    """사용자 프로필 정보를 가져오는 함수"""
+    db = SessionLocal()
+    try:
+        profile = db.query(UserProfile).first()
+        if profile:
+            return {
+                'content': profile.content,
+                'consultant_style': profile.consultant_style
+            }
+        return {}
+    finally:
+        db.close()
+
+def update_user_profile(profile_data):
+    """사용자 프로필을 업데이트하는 함수"""
+    db = SessionLocal()
+    try:
+        profile = db.query(UserProfile).first()
+        if not profile:
+            profile = UserProfile()
+            db.add(profile)
+        
+        for key, value in profile_data.items():
+            setattr(profile, key, value)
+        
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+
+def get_todays_goals():
+    """오늘의 목표를 가져오는 함수"""
+    db = SessionLocal()
+    try:
+        today = datetime.now().date()
+        return db.query(Goal).filter(
+            func.date(Goal.start_date) <= today,
+            func.date(Goal.end_date) >= today
+        ).all()
+    finally:
+        db.close()
+
+def get_incomplete_goals():
+    """미완료된 목표를 가져오는 함수"""
+    db = SessionLocal()
+    try:
+        today = datetime.now().date()
+        return db.query(Goal).filter(
+            func.date(Goal.end_date) < today,
+            Goal.status != "완료"
+        ).all()
+    finally:
+        db.close()
+
+def get_category_name(category_id: int) -> str:
+    """카테고리 ID로 카테고리 이름을 가져오는 함수"""
+    db = SessionLocal()
+    try:
+        category = db.query(Category).filter(Category.id == category_id).first()
+        return category.name if category else "미분류"
+    finally:
+        db.close()
+
+

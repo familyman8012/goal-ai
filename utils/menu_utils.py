@@ -9,7 +9,9 @@ def show_menu():
         "카테고리 관리": "pages/4_category_management.py",
         "정보 게시판": "pages/5_info_board.py",
         "아이디어 게시판": "pages/6_idea_board.py",
-        "사용자 가이드": "pages/7_guide.py"
+        "링크 게시판": "pages/8_link_board.py",
+        "사용자 가이드": "pages/7_guide.py",
+        "프로필 관리": "pages/9_user_profile.py"
     }
     
     # 메뉴 렌더링
