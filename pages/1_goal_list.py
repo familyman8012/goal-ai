@@ -1,24 +1,8 @@
 import streamlit as st
 from datetime import datetime, timedelta
 import pandas as pd
-from database import get_goals, get_categories, delete_goal, get_links  # get_links 추가
-
-# 시간 포맷팅 함수 추가 - 파일 상단으로 이동
-def format_time(dt):
-    """datetime을 '오전/오후 시:분' 형식으로 변환"""
-    if pd.isnull(dt):
-        return ""
-    dt = pd.to_datetime(dt)
-    hour = dt.hour
-    if hour == 0:
-        return f"오전 12:{dt.strftime('%M')}"
-    elif hour < 12:
-        return f"오전 {hour}:{dt.strftime('%M')}"
-    elif hour == 12:
-        return f"오후 12:{dt.strftime('%M')}"
-    else:
-        return f"오후 {hour-12}:{dt.strftime('%M')}"
-
+from database import get_goals, get_categories, delete_goal, get_links
+from utils.auth_utils import login_required, init_auth
 st.set_page_config(
     page_title="목표 목록",
     page_icon="📋",
@@ -26,6 +10,14 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items=None
 )
+
+# 인증 초기화
+init_auth()
+
+# 로그인 체크
+login_required()
+
+
 
 # 페이지 진입 시 목표 관련 세션 상태 정리
 st.session_state.pop('current_goal_id', None)
@@ -35,6 +27,12 @@ st.title("진행중/완료 목표 목록")
 
 # 전체 목표 데이터 가져오기
 goals_df = get_goals()
+
+# 기존 import 문 아래에 추가
+def format_time(dt):
+    """datetime 객체에서 시간을 포맷팅하는 함수"""
+    return dt.strftime("%H:%M")
+
 
 if goals_df.empty:
     st.info("등록된 목표가 없습니다. '새 목표 추가'에서 목표를 추가해보세요!")

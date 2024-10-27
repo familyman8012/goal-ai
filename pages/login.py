@@ -1,11 +1,6 @@
 import streamlit as st
-from utils.auth_utils import login, init_auth
-from database import create_user, get_user_by_username, create_initial_profile
-from utils.auth_utils import hash_password
 
-# 인증 초기화
-init_auth()
-
+# 페이지 설정을 최상단으로 이동
 st.set_page_config(
     page_title="로그인",
     page_icon="🔐",
@@ -13,6 +8,17 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items=None
 )
+
+from utils.auth_utils import login, init_auth
+from database import create_user, get_user_by_username, create_initial_profile
+from utils.auth_utils import hash_password
+
+# 인증 초기화
+init_auth()
+
+# 이미 로그인된 경우 홈으로 리다이렉트
+if st.session_state.get('authenticated', False):
+    st.switch_page("Home.py")
 
 st.title("로그인")
 

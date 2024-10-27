@@ -12,16 +12,7 @@ import re
 from utils.session_utils import clear_goal_session
 from utils.auth_utils import login_required, init_auth
 
-# 인증 초기화
-init_auth()
-
-# 로그인 체크
-login_required()
-
-# 페이지 설정 전에 세션 정리
-clear_goal_session()
-
-# 페이지 설정
+# 페이지 설정을 가장 먼저 해야 함
 st.set_page_config(
     page_title="목표 달성 GPT",
     page_icon="🎯",
@@ -29,6 +20,15 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items=None  # 기본 메뉴 완전히 제거
 )
+
+# 인증 초기화
+init_auth()
+
+# 로그인 체크
+login_required()
+
+# 페이지 진입 시 세션 정리
+clear_goal_session()
 
 # 메뉴 표시
 show_menu()
@@ -384,7 +384,7 @@ if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
                 {"role": "assistant", "content": assistant_response}
             )
 
-# 모델 선택 드롭다운 추가
+# 모델 선택 드다운 추가
 st.sidebar.title("AI 모델 설정")
 model_options = {
     "GPT-4o": "gpt-4o",
@@ -414,6 +414,8 @@ if st.session_state.selected_model != model_options[selected_model]:
 # 세션 ID 생성 (앱 시작시)
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
+
+
 
 
 

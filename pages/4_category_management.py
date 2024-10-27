@@ -1,21 +1,4 @@
 import streamlit as st
-from database import (
-    get_categories,
-    add_category,
-    update_category,
-    delete_category,
-)
-from utils.session_utils import clear_goal_session
-from utils.auth_utils import login_required, init_auth
-
-# 인증 초기화
-init_auth()
-
-# 로그인 체크
-login_required()
-
-# 페이지 진입 시 세션 정리
-clear_goal_session()
 
 st.set_page_config(
     page_title="카테고리 관리",
@@ -24,6 +7,15 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items=None
 )
+
+from database import (
+    get_categories,
+    add_category,
+    update_category,
+    delete_category,
+)
+from utils.session_utils import clear_goal_session
+from utils.auth_utils import login_required, init_auth
 
 # 나머지 코드는 동일...
 

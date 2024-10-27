@@ -578,7 +578,7 @@ def get_incomplete_goals():
         db.close()
 
 def get_category_name(category_id: int) -> str:
-    """카테고리 ID로 카테고리 이름을 가져오는 함수"""
+    """카테고��� ID로 카테고리 이름을 가져오는 함수"""
     db = SessionLocal()
     try:
         category = db.query(Category).filter(Category.id == category_id).first()
@@ -688,6 +688,7 @@ def update_session(user_id: int, session_token: str, expires_at: datetime):
     """세션 정보를 업데이트하는 함수"""
     db = SessionLocal()
     try:
+        # 기존 세션이 있으면 업데이트, 없으면 새로 생성
         query = text("""
         INSERT INTO sessions (user_id, session_token, expires_at)
         VALUES (:user_id, :session_token, :expires_at)
@@ -706,6 +707,21 @@ def update_session(user_id: int, session_token: str, expires_at: datetime):
     finally:
         db.close()
 
+def get_session(session_token: str):
+    """세션 토큰으로 세션 정보를 조회하는 함수"""
+    db = SessionLocal()
+    try:
+        query = text("""
+        SELECT user_id, expires_at 
+        FROM sessions 
+        WHERE session_token = :token 
+        AND expires_at > CURRENT_TIMESTAMP
+        """)
+        result = db.execute(query, {'token': session_token}).fetchone()
+        return result if result else None
+    finally:
+        db.close()
+
 def validate_session_token(session_token: str) -> bool:
     """세션 토큰의 유효성을 검사하는 함수"""
     db = SessionLocal()
@@ -721,6 +737,21 @@ def validate_session_token(session_token: str) -> bool:
         return bool(result)
     finally:
         db.close()
+
+def delete_session(session_token: str):
+    """세션을 삭제하는 함수"""
+    db = SessionLocal()
+    try:
+        query = text("""
+        DELETE FROM sessions 
+        WHERE session_token = :token
+        """)
+        db.execute(query, {'token': session_token})
+        db.commit()
+    finally:
+        db.close()
+
+
 
 
 

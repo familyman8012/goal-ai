@@ -5,12 +5,7 @@ from config import GOAL_STATUS, IMPORTANCE_LEVELS
 import pandas as pd
 from utils.auth_utils import login_required, init_auth
 
-# 인증 초기화
-init_auth()
-
-# 로그인 체크
-login_required()
-
+# 페이지 설정을 최상단으로 이동
 st.set_page_config(
     page_title="Goal Detail",
     page_icon="🎯",
@@ -18,6 +13,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items=None
 )
+
+# 인증 초기화
+init_auth()
+
+# 로그인 체크
+login_required()
 
 # 전체 목표 데이터 먼저 가져오기
 if 'goals_df' not in st.session_state:

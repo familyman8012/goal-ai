@@ -9,6 +9,14 @@ import uuid
 from utils.session_utils import clear_goal_session
 from utils.auth_utils import login_required, init_auth
 
+st.set_page_config(
+    page_title="미달성 목표 분석",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items=None
+)
+
 # 페이지 진입 시 세션 정리
 clear_goal_session()
 
@@ -17,14 +25,6 @@ init_auth()
 
 # 로그인 체크
 login_required()
-
-st.set_page_config(
-    page_title="미달성 목표 분석",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items=None
-)
 
 # 상단에 uuid import 추가
 # session_id 생성 (앱 시작시)
