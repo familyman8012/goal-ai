@@ -217,7 +217,7 @@ def add_goal_analysis(period, goals_analyzed, analysis_result):
 def get_goal_analysis(period, goals_analyzed):
     db = SessionLocal()
     try:
-        # 표 ID들을 정렬하여 문자열로 변환
+        # 표 ID들을 정렬하여 자열로 변환
         goals_str = ",".join(map(str, sorted(goals_analyzed)))
 
         # 최신 분석 결과 조합
@@ -578,7 +578,7 @@ def get_incomplete_goals():
         db.close()
 
 def get_category_name(category_id: int) -> str:
-    """카테고��� ID로 카테고리 이름을 가져오는 함수"""
+    """카테고 ID로 카테고리 이름을 져오는 함수"""
     db = SessionLocal()
     try:
         category = db.query(Category).filter(Category.id == category_id).first()
@@ -750,6 +750,28 @@ def delete_session(session_token: str):
         db.commit()
     finally:
         db.close()
+
+def get_user_by_id(user_id: int) -> dict:
+    """사용자 ID로 사용자 정보를 조회하는 함수"""
+    db = SessionLocal()
+    try:
+        query = text("""
+        SELECT id, username, email
+        FROM users
+        WHERE id = :user_id
+        """)
+        result = db.execute(query, {'user_id': user_id}).fetchone()
+        if result:
+            return {
+                'id': result[0],
+                'username': result[1],
+                'email': result[2]
+            }
+        return None
+    finally:
+        db.close()
+
+
 
 
 

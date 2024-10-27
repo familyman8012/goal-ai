@@ -1,9 +1,13 @@
 import streamlit as st
 import bcrypt
 from functools import wraps
-from database import get_user_by_credentials, update_last_login, update_session, delete_session, get_session
+from database import get_user_by_credentials, update_last_login, get_user_by_id, update_session, delete_session
 from datetime import datetime, timedelta
 import secrets
+from streamlit_cookies_controller import CookieController
+
+# 전역 쿠키 컨트롤러 인스턴스 생성
+cookie_manager = CookieController()
 
 def hash_password(password: str) -> str:
     """비밀번호 해싱"""
@@ -13,33 +17,29 @@ def verify_password(password: str, hashed_password: str) -> bool:
     """비밀번호 검증"""
     return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
 
-def create_session_token(user_id: int):
+def create_session_token():
     """새로운 세션 토큰 생성"""
-    token = secrets.token_urlsafe(32)
-    expires_at = datetime.now() + timedelta(days=7)  # 7일 후 만료
-    update_session(user_id, token, expires_at)
-    return token, expires_at
+    return secrets.token_urlsafe(32)
 
 def login(username: str, password: str) -> bool:
     """로그인 처리"""
     user = get_user_by_credentials(username)
     if user and verify_password(password, user['password_hash']):
         # 세션 토큰 생성
-        token, expires_at = create_session_token(user['id'])
+        token = create_session_token()
+        expires_at = datetime.now() + timedelta(days=7)
+        
+        # DB에 세션 정보 저장
+        update_session(user['id'], token, expires_at)
         
         # 세션 상태 업데이트
         st.session_state.authenticated = True
         st.session_state.user_id = user['id']
         st.session_state.username = username
-        st.session_state.session_token = token
         
-        # localStorage에 세션 토큰 저장 (sessionStorage 대신)
-        js_code = f"""
-        <script>
-            localStorage.setItem('session_token', '{token}');
-        </script>
-        """
-        st.components.v1.html(js_code, height=0)
+        # 쿠키에 세션 정보 저장
+        cookie_manager.set('session_token', token)
+        cookie_manager.set('user_id', str(user['id']))
         
         # 마지막 로그인 시간 업데이트
         update_last_login(user['id'])
@@ -52,45 +52,34 @@ def logout():
         # DB에서 세션 삭제
         delete_session(st.session_state.session_token)
     
-    # localStorage에서 세션 토큰 제거
-    js_code = """
-    <script>
-        localStorage.removeItem('session_token');
-    </script>
-    """
-    st.components.v1.html(js_code, height=0)
+    # 쿠키에서 세션 정보 삭제 (max_age=0으로 설정하여 즉시 만료)
+    cookie_manager.set('session_token', '', max_age=0)
+    cookie_manager.set('user_id', '', max_age=0)
     
     clear_auth_state()
 
 def init_auth():
     """인증 관련 세션 상태 초기화"""
     if 'authenticated' not in st.session_state:
-        # localStorage에서 세션 토큰 가져오기
-        js_code = """
-        <script>
-            const token = localStorage.getItem('session_token');
-            if (token) {
-                window.parent.postMessage({type: 'session_token', token: token}, '*');
-            }
-        </script>
-        """
-        st.components.v1.html(js_code, height=0)
+        # 쿠키에서 세션 토큰 확인
+        session_token = cookie_manager.get('session_token')
+        user_id = cookie_manager.get('user_id')
         
-        # JavaScript에서 전달받은 토큰으로 세션 검증
-        session_token = st.experimental_get_query_params().get('session_token', [None])[0]
-        if session_token:
-            session = get_session(session_token)
-            if session:
-                user_id, expires_at = session
+        if session_token and user_id:
+            user = get_user_by_id(int(user_id))
+            if user:
                 st.session_state.authenticated = True
-                st.session_state.user_id = user_id
+                st.session_state.user_id = user['id']
+                st.session_state.username = user['username']
                 st.session_state.session_token = session_token
                 
                 # 세션 연장
-                new_expires_at = datetime.now() + timedelta(days=7)
-                update_session(user_id, session_token, new_expires_at)
+                expires_at = datetime.now() + timedelta(days=7)
+                update_session(user['id'], session_token, expires_at)
             else:
                 clear_auth_state()
+                cookie_manager.set('session_token', '', max_age=0)
+                cookie_manager.set('user_id', '', max_age=0)
         else:
             clear_auth_state()
 
