@@ -14,14 +14,33 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 import pandas as pd
-from dotenv import load_dotenv
 import streamlit as st
 
-# .env 파일 로드
-load_dotenv()
+# 데이터베이스 연결 정보
+def get_database_url():
+    if hasattr(st, "secrets"):  # Streamlit Cloud 환경
+        return (
+            f"postgresql://"
+            f"{st.secrets.postgres.DB_USERNAME}:"
+            f"{st.secrets.postgres.DB_PASSWORD}@"
+            f"{st.secrets.postgres.DB_HOST}:"
+            f"{st.secrets.postgres.DB_PORT}/"
+            f"{st.secrets.postgres.DB_NAME}"
+        )
+    else:  # 로컬 환경
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        return (
+            f"postgresql://"
+            f"{os.getenv('DB_USERNAME')}:"
+            f"{os.getenv('DB_PASSWORD')}@"
+            f"{os.getenv('DB_HOST')}:"
+            f"{os.getenv('DB_PORT')}/"
+            f"{os.getenv('DB_NAME')}"
+        )
 
-# 데이터베이스 연결 설정
-DATABASE_URL = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+DATABASE_URL = get_database_url()
 
 # SQLAlchemy 엔진 및 세션 설정
 engine = create_engine(DATABASE_URL)
@@ -524,7 +543,7 @@ def get_user_profile():
         db.close()
 
 def update_user_profile(profile_data):
-    """사용자 프로필을 업데이트하는 함수"""
+    """용자 프로필을 업데이트하는 함수"""
     db = SessionLocal()
     try:
         profile = (
@@ -587,7 +606,7 @@ def get_category_name(category_id: int) -> str:
         db.close()
 
 def create_user(username: str, email: str, password_hash: str) -> int:
-    """새로운 사용자를 생성하는 함수"""
+    """새로운 사용자를 생하는 함수"""
     db = SessionLocal()
     try:
         query = text("""
@@ -770,6 +789,9 @@ def get_user_by_id(user_id: int) -> dict:
         return None
     finally:
         db.close()
+
+
+
 
 
 
