@@ -1,5 +1,12 @@
 import streamlit as st
 from utils.session_utils import clear_goal_session
+from utils.auth_utils import login_required, init_auth
+
+# 인증 초기화
+init_auth()
+
+# 로그인 체크
+login_required()
 
 # 페이지 진입 시 세션 정리
 clear_goal_session()
@@ -98,5 +105,5 @@ st.sidebar.markdown("""
 
 ### Gemini
 - 효율적인 정보 처리
-- 간단한 대화에 적합
+- 간단한 대���에 적합
 """)

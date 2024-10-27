@@ -3,6 +3,13 @@ from datetime import datetime
 from database import get_goals, update_goal, add_goal, get_categories
 from config import GOAL_STATUS, IMPORTANCE_LEVELS
 import pandas as pd
+from utils.auth_utils import login_required, init_auth
+
+# 인증 초기화
+init_auth()
+
+# 로그인 체크
+login_required()
 
 st.set_page_config(
     page_title="Goal Detail",

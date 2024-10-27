@@ -1,4 +1,5 @@
 import streamlit as st
+from utils.auth_utils import logout
 
 def show_menu():
     # 메뉴 아이템 정의
@@ -13,6 +14,14 @@ def show_menu():
         "사용자 가이드": "pages/7_guide.py",
         "프로필 관리": "pages/9_user_profile.py"
     }
+    
+    # 현재 로그인한 사용자 표시
+    st.sidebar.markdown(f"👤 {st.session_state.username}")
+    
+    # 로그아웃 버튼
+    if st.sidebar.button("로그아웃"):
+        logout()
+        st.switch_page("pages/login.py")
     
     # 메뉴 렌더링
     for label, page in menu_items.items():

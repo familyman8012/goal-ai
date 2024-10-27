@@ -2,6 +2,13 @@ import streamlit as st
 from database import get_links, add_link, update_link, delete_link, get_link
 from utils.session_utils import clear_goal_session
 import pandas as pd
+from utils.auth_utils import login_required, init_auth
+
+# 인증 초기화
+init_auth()
+
+# 로그인 체크
+login_required()
 
 # 페이지 진입 시 세션 정리
 clear_goal_session()

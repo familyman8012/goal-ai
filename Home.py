@@ -10,6 +10,13 @@ from utils.pplx_utils import search_with_pplx
 from utils.menu_utils import show_menu  # 메뉴 컴포넌트 import
 import re
 from utils.session_utils import clear_goal_session
+from utils.auth_utils import login_required, init_auth
+
+# 인증 초기화
+init_auth()
+
+# 로그인 체크
+login_required()
 
 # 페이지 설정 전에 세션 정리
 clear_goal_session()
@@ -225,7 +232,7 @@ if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
         
         try:
             add_post(title_to_save, content_to_save, "info")
-            chat_container.markdown("✅ 정보가 게��판에 저장되었습니다.")
+            chat_container.markdown("✅ 정보가 게판에 저장되었습니다.")
         except Exception as e:
             chat_container.markdown(f"❌ 게시판 저장 중 오류가 발생했습니다: {str(e)}")
     
@@ -407,6 +414,7 @@ if st.session_state.selected_model != model_options[selected_model]:
 # 세션 ID 생성 (앱 시작시)
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
+
 
 
 
