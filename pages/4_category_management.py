@@ -16,8 +16,12 @@ from database import (
 )
 from utils.session_utils import clear_goal_session
 from utils.auth_utils import login_required, init_auth
+from utils.menu_utils import show_menu  # 추가
 
 # 나머지 코드는 동일...
+
+# 메뉴 표시 추가
+show_menu()
 
 st.title("카테고리 관리")
 

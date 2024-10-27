@@ -2,6 +2,7 @@ import streamlit as st
 from database import update_user_profile, get_user_profile
 from utils.session_utils import clear_goal_session
 from utils.auth_utils import login_required, init_auth
+from utils.menu_utils import show_menu  # 추가
 
 # 인증 초기화
 init_auth()
@@ -12,13 +13,10 @@ login_required()
 # 페이지 진입 시 세션 정리
 clear_goal_session()
 
-st.set_page_config(
-    page_title="프로필 관리",
-    page_icon="👤",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items=None
-)
+# 메뉴 표시 추가
+show_menu()
+
+
 
 st.title("프로필 관리")
 
@@ -57,7 +55,7 @@ with st.form("profile_form"):
             }
             
             update_user_profile(profile_data)
-            st.success("프로필이 업데이트되었습니다!")
+            st.success("프로필이 업���이트되었습니다!")
             
         except Exception as e:
             st.error(f"프로필 업데이트 중 오류가 발생했습니다: {str(e)}")

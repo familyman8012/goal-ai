@@ -2,26 +2,31 @@ import streamlit as st
 from utils.auth_utils import logout
 
 def show_menu():
-    # 메뉴 아이템 정의
+    # 사용자 정보와 로그아웃 버튼을 상단에 배치
+    col1, col2 = st.sidebar.columns([3,1])
+    with col1:
+        st.markdown(f"👤 {st.session_state.username}")
+    with col2:
+        if st.button("🚪"):
+            logout()
+            st.switch_page("pages/login.py")
+            
+    # 구분선 추가
+    st.sidebar.markdown("---")
+    
+    # 메뉴 아이템 정의 (이모지 추가)
     menu_items = {
-        "목표 목록": "pages/1_goal_list.py",
-        "미달성 목표 분석": "pages/2_incomplete_goals_analysis.py",
-        "목표 상세": "pages/3_goal_detail.py",
-        "카테고리 관리": "pages/4_category_management.py",
-        "정보 게시판": "pages/5_info_board.py",
-        "아이디어 게시판": "pages/6_idea_board.py",
-        "링크 게시판": "pages/8_link_board.py",
-        "사용자 가이드": "pages/7_guide.py",
-        "프로필 관리": "pages/9_user_profile.py"
+        "🏠 AI Chat": "Home.py",
+        "🎯 목표 목록": "pages/1_goal_list.py",
+        "📊 미달성 목표 분석": "pages/2_incomplete_goals_analysis.py", 
+        "✏️ 목표 상세": "pages/3_goal_detail.py",
+        "📁 카테고리 관리": "pages/4_category_management.py",
+        "📢 정보 게시판": "pages/5_info_board.py",
+        "💡 아이디어 게시판": "pages/6_idea_board.py",
+        "🔗 링크 게시판": "pages/8_link_board.py",
+        "📖 사용자 가이드": "pages/7_guide.py",
+        "👤 프로필 관리": "pages/9_user_profile.py"
     }
-    
-    # 현재 로그인한 사용자 표시
-    st.sidebar.markdown(f"👤 {st.session_state.username}")
-    
-    # 로그아웃 버튼
-    if st.sidebar.button("로그아웃"):
-        logout()
-        st.switch_page("pages/login.py")
     
     # 메뉴 렌더링
     for label, page in menu_items.items():

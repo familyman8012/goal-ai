@@ -8,6 +8,7 @@ from utils.llm_utils import LLMFactory, StreamHandler
 import uuid
 from utils.session_utils import clear_goal_session
 from utils.auth_utils import login_required, init_auth
+from utils.menu_utils import show_menu  # 추가
 
 st.set_page_config(
     page_title="미달성 목표 분석",
@@ -16,6 +17,9 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items=None
 )
+
+# 메뉴 표시 추가
+show_menu()
 
 # 페이지 진입 시 세션 정리
 clear_goal_session()

@@ -35,7 +35,17 @@ clear_goal_session()
 # 메뉴 표시
 show_menu()
 
-st.title("목표 달성 GPT")
+st.title("🎯 목표 달성 GPT")
+
+# 사용자 정보와 로그아웃 버튼 제거 (show_menu에서 처리됨)
+# 이 부분 삭제:
+# col1, col2 = st.sidebar.columns([3,1])
+# with col1:
+#     st.markdown(f"👤 {st.session_state.username}")
+# with col2:
+#     if st.button("🚪"):
+#         logout()
+#         st.switch_page("pages/login.py")
 
 # 사용법 expander 추가
 with st.expander("📖 사용법 보기"):
@@ -236,14 +246,14 @@ if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
             add_post(title_to_save, content_to_save, "info")
             chat_container.markdown("✅ 정보가 게판에 저장되었습니다.")
         except Exception as e:
-            chat_container.markdown(f"❌ 게시판 저장 중 오류가 ��생했습니다: {str(e)}")
+            chat_container.markdown(f"❌ 게시판 저장 중 오류가 생했습니다: {str(e)}")
     
-    # 아이디어 게시판에 올리기 요청 처리
+    # 아이디어 게���판에 올리기 요청 처리
     elif "아이디어 게시판에" in prompt and "올려줘" in prompt:
         chat_container = st.chat_message("assistant")
         
         # 제목 추출 로직
-        title = "새로운 아이디어"  # 기본값
+        title = "새로운 아이��어"  # 기본값
         content = prompt  # 전체 내용을 저장
         
         if "제목은" in prompt and "로" in prompt:
@@ -416,6 +426,8 @@ if st.session_state.selected_model != model_options[selected_model]:
 # 세션 ID 생성 (앱 시작시)
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
+
+
 
 
 

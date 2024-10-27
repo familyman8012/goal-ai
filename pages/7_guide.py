@@ -1,6 +1,7 @@
 import streamlit as st
 from utils.session_utils import clear_goal_session
 from utils.auth_utils import login_required, init_auth
+from utils.menu_utils import show_menu
 
 # 인증 초기화
 init_auth()
@@ -11,15 +12,11 @@ login_required()
 # 페이지 진입 시 세션 정리
 clear_goal_session()
 
-st.set_page_config(
-    page_title="사용자 가이드",
-    page_icon="📖",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items=None
-)
+# 메뉴 표시 추가
+show_menu()
 
-st.title("🎯 사용자 가이드")
+
+st.title("사용자 가이드")
 
 st.markdown("""
 ## 💬 기본 대화 기능
@@ -105,5 +102,5 @@ st.sidebar.markdown("""
 
 ### Gemini
 - 효율적인 정보 처리
-- 간단한 대���에 적합
+- 간단한 대에 적합
 """)

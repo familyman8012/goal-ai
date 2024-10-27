@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 from database import get_goals, get_categories, delete_goal, get_links
 from utils.auth_utils import login_required, init_auth
+from utils.menu_utils import show_menu  # 추가
 st.set_page_config(
     page_title="목표 목록",
     page_icon="📋",
@@ -17,7 +18,8 @@ init_auth()
 # 로그인 체크
 login_required()
 
-
+# 메뉴 표시 추가
+show_menu()
 
 # 페이지 진입 시 목표 관련 세션 상태 정리
 st.session_state.pop('current_goal_id', None)
@@ -372,4 +374,5 @@ else:
     # 시간순으로 정렬
     for period in filtered_dfs:
         filtered_dfs[period] = filtered_dfs[period].sort_values(by='start_date')
+
 

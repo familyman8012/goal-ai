@@ -4,6 +4,7 @@ from database import get_goals, update_goal, add_goal, get_categories
 from config import GOAL_STATUS, IMPORTANCE_LEVELS
 import pandas as pd
 from utils.auth_utils import login_required, init_auth
+from utils.menu_utils import show_menu  # 추가
 
 # 페이지 설정을 최상단으로 이동
 st.set_page_config(
@@ -13,6 +14,9 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items=None
 )
+
+# 메뉴 표시 추가
+show_menu()
 
 # 인증 초기화
 init_auth()
@@ -31,11 +35,9 @@ if 'current_goal_id' not in st.session_state and 'selected_goal_id' in st.sessio
 
 goal_id = st.session_state.get('current_goal_id')
 
-if not goal_id:
-    st.title("새 목표 추가")
-    goal = None
-    filtered_goals = pd.DataFrame()
-else:
+# goal 변수 초기화
+goal = None
+if goal_id:
     try:
         # id로 목표 찾기
         filtered_goals = st.session_state.goals_df[st.session_state.goals_df["id"].astype(int) == goal_id]
@@ -50,11 +52,13 @@ else:
                 st.switch_page("pages/1_goal_list.py")
             st.stop()
     except Exception as e:
-        st.error(f"목표 조 중 오류가 발생했습니다: {str(e)}")
+        st.error(f"목표 조회 중 오류가 발생했습니다: {str(e)}")
         if st.button("목록으로 돌아가기"):
             st.session_state.pop('current_goal_id', None)
             st.switch_page("pages/1_goal_list.py")
         st.stop()
+else:
+    st.title("새 목표 추가")
 
 # 입력 필드
 title = st.text_input("목표", value=goal["title"] if goal is not None else "")
