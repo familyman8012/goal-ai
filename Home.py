@@ -18,14 +18,16 @@ st.set_page_config(
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items=None  # 기본 메뉴 완전히 제거
+    menu_items=None
 )
 
 # 인증 초기화
 init_auth()
 
-# 로그인 체크
-login_required()
+# 로그인 체크 - 최상단에 배치
+if not st.session_state.get('authenticated', False) or not st.session_state.get('user_id'):
+    st.switch_page("pages/login.py")
+    st.stop()
 
 # 페이지 진입 시 세션 정리
 clear_goal_session()
@@ -234,7 +236,7 @@ if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
             add_post(title_to_save, content_to_save, "info")
             chat_container.markdown("✅ 정보가 게판에 저장되었습니다.")
         except Exception as e:
-            chat_container.markdown(f"❌ 게시판 저장 중 오류가 발생했습니다: {str(e)}")
+            chat_container.markdown(f"❌ 게시판 저장 중 오류가 ��생했습니다: {str(e)}")
     
     # 아이디어 게시판에 올리기 요청 처리
     elif "아이디어 게시판에" in prompt and "올려줘" in prompt:
@@ -414,6 +416,7 @@ if st.session_state.selected_model != model_options[selected_model]:
 # 세션 ID 생성 (앱 시작시)
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
+
 
 
 

@@ -17,8 +17,9 @@ from utils.auth_utils import hash_password
 init_auth()
 
 # 이미 로그인된 경우 홈으로 리다이렉트
-if st.session_state.get('authenticated', False):
+if st.session_state.get('authenticated', False) and st.session_state.get('user_id'):
     st.switch_page("Home.py")
+    st.stop()  # 페이지 실행 중단
 
 st.title("로그인")
 

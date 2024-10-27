@@ -60,7 +60,13 @@ def logout():
 
 def init_auth():
     """인증 관련 세션 상태 초기화"""
+    # 인증 상태가 없으면 무조건 False로 초기화
     if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+        st.session_state.user_id = None
+        st.session_state.username = None
+        st.session_state.session_token = None
+        
         # 쿠키에서 세션 토큰 확인
         session_token = cookie_manager.get('session_token')
         user_id = cookie_manager.get('user_id')
@@ -80,8 +86,6 @@ def init_auth():
                 clear_auth_state()
                 cookie_manager.set('session_token', '', max_age=0)
                 cookie_manager.set('user_id', '', max_age=0)
-        else:
-            clear_auth_state()
 
 def login_required(func=None):
     """로그인 필요한 페이지에 대한 데코레이터"""
@@ -89,9 +93,17 @@ def login_required(func=None):
         @wraps(func)
         def wrapper(*args, **kwargs):
             init_auth()  # 세션 상태 확인
+            
+            # authenticated가 명시적으로 True가 아니면 로그인 페이지로 리다이렉트
             if not st.session_state.get('authenticated', False):
-                st.warning("로그인이 필요한 페이지입니다.")
                 st.switch_page("pages/login.py")
+                st.stop()  # 페이지 실행 중단
+                
+            # user_id가 없으면 로그인 페이지로 리다이렉트
+            if not st.session_state.get('user_id'):
+                st.switch_page("pages/login.py")
+                st.stop()  # 페이지 실행 중단
+                
             return func(*args, **kwargs)
         return wrapper
     
