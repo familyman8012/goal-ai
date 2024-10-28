@@ -1,4 +1,24 @@
 import streamlit as st
+# 최상단에 배치
+st.set_page_config(
+    page_title="미달성 목표 분석",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+    menu_items=None
+)
+
+# CSS로 사이드바 버튼 숨기기
+st.markdown(
+    """
+    <style>
+        [data-testid="collapsedControl"] {
+            visibility: hidden;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 from datetime import datetime, timedelta
 import pandas as pd
 import openai
@@ -9,14 +29,9 @@ import uuid
 from utils.session_utils import clear_goal_session
 from utils.auth_utils import login_required, init_auth
 from utils.menu_utils import show_menu  # 추가
+import pytz
 
-st.set_page_config(
-    page_title="미달성 목표 분석",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items=None
-)
+
 
 # 메뉴 표시 추가
 show_menu()
@@ -41,35 +56,35 @@ goals_df = get_goals()
 if goals_df.empty:
     st.info("등록된 목표가 없습니다.")
 else:
-    current_time = datetime.now()
+    current_time = pd.Timestamp.now(tz=pytz.timezone('Asia/Seoul'))
 
     # 각 기간별 미달성 목표 필터링
     filtered_dfs = {
         "어제": goals_df[
             (
-                pd.to_datetime(goals_df["end_date"]).dt.date
+                pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul').dt.date
                 == (current_time - timedelta(days=1)).date()
             )
             & (goals_df["status"] != "완료")
-        ].sort_values(by='start_date', ascending=False),  # 시간순 내림차순 정렬
+        ].sort_values(by='start_date', ascending=False),
         
         "지난 주": goals_df[
             (
-                pd.to_datetime(goals_df["end_date"])
+                pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul')
                 >= (current_time - timedelta(days=7))
             )
-            & (pd.to_datetime(goals_df["end_date"]) < current_time)
+            & (pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul') < current_time)
             & (goals_df["status"] != "완료")
-        ].sort_values(by='start_date', ascending=False),  # 시간순 내림차순 정렬
+        ].sort_values(by='start_date', ascending=False),
         
         "지난 달": goals_df[
             (
-                pd.to_datetime(goals_df["end_date"])
+                pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul')
                 >= (current_time - timedelta(days=30))
             )
-            & (pd.to_datetime(goals_df["end_date"]) < current_time)
+            & (pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul') < current_time)
             & (goals_df["status"] != "완료")
-        ].sort_values(by='start_date', ascending=False),  # 시간순 내림차순 정렬
+        ].sort_values(by='start_date', ascending=False),
     }
 
     tabs = st.tabs(list(filtered_dfs.keys()))

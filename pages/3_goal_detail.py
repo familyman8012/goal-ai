@@ -1,19 +1,33 @@
 import streamlit as st
+# 페이지 설정을 최상단으로 이동
+st.set_page_config(
+    page_title="목표 상세",
+    page_icon="🎯",
+    layout="wide",
+    initial_sidebar_state="collapsed",  # "expanded"에서 "collapsed"로 변경
+    menu_items=None
+)
+
+# CSS로 사이드바 버튼 숨기기
+st.markdown(
+    """
+    <style>
+        [data-testid="collapsedControl"] {
+            visibility: hidden;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 from datetime import datetime
 from database import get_goals, update_goal, add_goal, get_categories
 from config import GOAL_STATUS, IMPORTANCE_LEVELS
 import pandas as pd
 from utils.auth_utils import login_required, init_auth
 from utils.menu_utils import show_menu  # 추가
+import pytz
 
-# 페이지 설정을 최상단으로 이동
-st.set_page_config(
-    page_title="Goal Detail",
-    page_icon="🎯",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items=None
-)
+
 
 # 메뉴 표시 추가
 show_menu()
@@ -66,7 +80,7 @@ title = st.text_input("목표", value=goal["title"] if goal is not None else "")
 col1, col2 = st.columns(2)
 
 with col1:
-    default_start = datetime.now()
+    default_start = datetime.now(pytz.timezone('Asia/Seoul'))
     start_date = st.date_input(
         "시작일",
         value=(
@@ -93,7 +107,7 @@ with col1:
         start_time = default_start.time()
 
 with col2:
-    default_end = datetime.now()
+    default_end = datetime.now(pytz.timezone('Asia/Seoul'))
     end_date = st.date_input(
         "종료일",
         value=(
@@ -120,7 +134,7 @@ with col2:
         end_time = default_end.time()
 
 trigger_action = st.text_input(
-    "동기", 
+    "트리거(원인과 결과)", 
     value=goal["trigger_action"] if goal is not None and pd.notnull(goal["trigger_action"]) else ""
 )
 
@@ -180,9 +194,12 @@ if end_date < start_date:
 else:
     if st.button("저장"):
         try:
-            # datetime 객체 생성 시 date와 time을 정확히 결합
-            start_datetime = datetime.combine(start_date, start_time)
-            end_datetime = datetime.combine(end_date, end_time)
+            # KST 시간대 적용
+            kst = pytz.timezone('Asia/Seoul')
+            
+            # datetime 객체 생성 시 KST 적용
+            start_datetime = kst.localize(datetime.combine(start_date, start_time))
+            end_datetime = kst.localize(datetime.combine(end_date, end_time))
             
             if end_datetime < start_datetime:
                 st.error("종료일시는 시작일시보다 늦어야 합니다.")

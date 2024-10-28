@@ -4,6 +4,8 @@ from datetime import datetime
 import os
 from PIL import Image
 import uuid
+import pandas as pd
+import pytz
 
 # 이미지 저장 경로 설정
 UPLOAD_DIR = "uploads"
@@ -44,7 +46,7 @@ def render_post_list(board_type: str, board_title: str):
             # 수정일이 있으면 수정일을, 없으면 작성일을 표시
             display_date = post['updated_at'].strftime("%Y-%m-%d") if post['updated_at'] else post['created_at'].strftime("%Y-%m-%d")
             
-            # 버튼 하나에 제목과 날짜를 함께 표시
+            # 버튼 하에 제목과 날짜를 함께 표시
             if st.button(f"📄 {post['title']} ({display_date})", key=f"post_{post['id']}"):
                 st.query_params["post_id"] = str(post['id'])
                 st.query_params["mode"] = "view"
@@ -58,7 +60,7 @@ def render_post_detail(post_id: int, board_type: str):
         return
         
     st.title(post.title)
-    st.text(f"작성일: {post.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+    st.text(f"작��일: {post.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
     st.text(f"수정일: {post.updated_at.strftime('%Y-%m-%d %H:%M:%S')}")
     st.markdown("---")
     st.markdown(post.content)
@@ -126,7 +128,7 @@ def render_post_form(board_type: str, post_id: int = None):
         """)
     
     content = st.text_area(
-        "내용 (마크다운 사용 가능)", 
+        "내 (마크다운 사용 가능)", 
         value=post.content if post else "", 
         height=300,
         help="마크다운 문법을 사용하여 작성할 수 있습니다. 위의 '마크다운 작성 가이드'를 참고하세요."
@@ -168,5 +170,106 @@ def render_post_form(board_type: str, post_id: int = None):
     
     with col2:
         if st.button("취소"):
+            st.query_params.clear()
+            st.rerun()
+
+def render_reflection_list():
+    """회고 게시글 목록을 렌더링하는 함수"""
+    st.title("회고 게시판")
+    
+    # 새 글 작성 버튼
+    if st.button("✏️ 새 회고 작성"):
+        st.query_params["mode"] = "write"
+        st.rerun()
+        
+    # 게시글 목록 표시
+    posts = get_posts("reflection")  # reflection 타입의 게시글 가져오기
+    if posts.empty:
+        st.info("등록된 회고가 없습니다.")
+    else:
+        for idx, post in posts.iterrows():
+            # 회고일과 수정일 표시
+            reflection_date = post['reflection_date'].strftime("%Y-%m-%d") if pd.notnull(post['reflection_date']) else "날짜 없음"
+            display_date = post['updated_at'].strftime("%Y-%m-%d") if post['updated_at'] else post['created_at'].strftime("%Y-%m-%d")
+            
+            if st.button(f"📝 {post['title']} (회고일: {reflection_date}, 작성: {display_date})", key=f"post_{post['id']}"):
+                st.query_params["post_id"] = str(post['id'])
+                st.query_params["mode"] = "view"
+                st.rerun()
+
+def render_reflection_form(post_id: int = None):
+    """회고 작성/수정 폼을 렌더링하는 함수"""
+    post = get_post(post_id) if post_id else None
+    
+    title = st.text_input("제목", value=post.title if post else "")
+    reflection_date = st.date_input(
+        "회고일",
+        value=post.reflection_date if post and post.reflection_date else datetime.now(pytz.timezone('Asia/Seoul')).date()
+    )
+    
+    content = st.text_area(
+        "내용 (마크다운 사용 가능)", 
+        value=post.content if post else "", 
+        height=300,
+        help="마크다운 문법을 사용하여 작성할 수 있습니다."
+    )
+    
+    # 작성한 내용 미리보기
+    if content:
+        with st.expander("내용 미리보기"):
+            st.markdown(content)
+    
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        if st.button("저장"):
+            if not title or not content:
+                st.error("제목과 내용을 모두 입력해주세요.")
+                return
+                
+            if post_id:
+                update_post(post_id, title, content, reflection_date=reflection_date)
+                st.success("회고가 수정되었습니다.")
+            else:
+                add_post(title, content, "reflection", reflection_date=reflection_date)
+                st.success("회고가 등록되었습니다.")
+            
+            st.query_params.clear()
+            st.rerun()
+    
+    with col2:
+        if st.button("취소"):
+            st.query_params.clear()
+            st.rerun()
+
+def render_reflection_detail(post_id: int):
+    """회고 상세 보기를 렌더링하는 함수"""
+    post = get_post(post_id)
+    if not post:
+        st.error("게시글을 찾을 수 없습니다.")
+        return
+        
+    st.title(post.title)
+    st.text(f"회고일: {post.reflection_date.strftime('%Y-%m-%d') if post.reflection_date else '날짜 없음'}")
+    st.text(f"작성일: {post.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+    if post.updated_at:
+        st.text(f"수정일: {post.updated_at.strftime('%Y-%m-%d %H:%M:%S')}")
+    st.markdown("---")
+    st.markdown(post.content)
+    
+    col1, col2, col3 = st.columns([1, 1, 4])
+    with col1:
+        if st.button("수정"):
+            st.query_params["mode"] = "edit"
+            st.rerun()
+    with col2:
+        if st.button("삭제"):
+            if delete_post(post_id):
+                st.success("회고가 삭제되었습니다.")
+                st.query_params.clear()
+                st.rerun()
+            else:
+                st.error("삭제 중 오류가 발생했습니다.")
+    with col3:
+        if st.button("목록으로"):
             st.query_params.clear()
             st.rerun()

@@ -1,4 +1,28 @@
 import streamlit as st
+
+
+st.set_page_config(
+    page_title="링크 게시판",
+    page_icon="🔗",
+
+    
+    layout="wide",
+    initial_sidebar_state="collapsed",  # "expanded"에서 "collapsed"로 변경
+    menu_items=None
+)
+
+# CSS로 사이드바 버튼 숨기기
+st.markdown(
+    """
+    <style>
+        [data-testid="collapsedControl"] {
+            visibility: hidden;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 from database import get_links, add_link, update_link, delete_link, get_link
 from utils.session_utils import clear_goal_session
 import pandas as pd
@@ -16,8 +40,6 @@ clear_goal_session()
 
 # 메뉴 표시 추가
 show_menu()
-
-
 
 st.title("링크 게시판")
 

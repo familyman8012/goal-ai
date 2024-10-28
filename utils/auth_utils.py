@@ -21,10 +21,14 @@ def create_session_token():
     """새로운 세션 토큰 생성"""
     return secrets.token_urlsafe(32)
 
-def login(username: str, password: str) -> bool:
+def login(email: str, password: str) -> bool:
     """로그인 처리"""
-    user = get_user_by_credentials(username)
+    user = get_user_by_credentials(email)
     if user and verify_password(password, user['password_hash']):
+        if not user.get('is_active', False):
+            st.error("현재 사용이 불가능한 계정입니다. 관리자에게 문의하세요.")
+            return False
+            
         # 세션 토큰 생성
         token = create_session_token()
         expires_at = datetime.now() + timedelta(days=7)
@@ -35,7 +39,8 @@ def login(username: str, password: str) -> bool:
         # 세션 상태 업데이트
         st.session_state.authenticated = True
         st.session_state.user_id = user['id']
-        st.session_state.username = username
+        st.session_state.username = user['username']
+        st.session_state.email = user['email']
         
         # 쿠키에 세션 정보 저장
         cookie_manager.set('session_token', token)

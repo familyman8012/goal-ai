@@ -4,8 +4,15 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 import os
 from dotenv import load_dotenv
 from langchain.callbacks.base import BaseCallbackHandler
+import streamlit as st
 
-load_dotenv()
+# 환경 변수 가져오기 함수
+def get_api_key(key_name: str) -> str:
+    if hasattr(st, "secrets"):  # Streamlit Cloud 환경
+        return st.secrets["api_keys"][key_name]
+    else:  # 로컬 환경
+        load_dotenv()
+        return os.getenv(key_name)
 
 class StreamHandler(BaseCallbackHandler):
     def __init__(self, container, initial_text=""):
@@ -26,7 +33,7 @@ class LLMFactory:
         if model_name.startswith("gpt"):
             model_version = model_name.split("-", 1)[1]
             return ChatOpenAI(
-                api_key=os.getenv("OPENAI_API_KEY"),
+                api_key=get_api_key("OPENAI_API_KEY"),
                 model_name=f"gpt-{model_version}",
                 temperature=0.7,
                 streaming=True,
@@ -34,7 +41,7 @@ class LLMFactory:
         elif model_name.startswith("claude"):
             model_version = model_name.split("-", 1)[1]
             return ChatAnthropic(
-                anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
+                anthropic_api_key=get_api_key("ANTHROPIC_API_KEY"),
                 model_name=f"claude-{model_version}",
                 temperature=0.7,
                 streaming=True,
@@ -42,7 +49,7 @@ class LLMFactory:
         elif model_name.startswith("gemini"):
             model_version = model_name.split("-", 1)[1]
             return ChatGoogleGenerativeAI(
-                google_api_key=os.getenv("GOOGLE_API_KEY"),
+                google_api_key=get_api_key("GOOGLE_API_KEY"),
                 model=f"gemini-{model_version}",
                 temperature=0.7,
                 streaming=False,

@@ -1,4 +1,26 @@
 import streamlit as st
+
+st.set_page_config(
+    page_title="프로필 관리",
+    page_icon="👤",
+    layout="wide",
+    initial_sidebar_state="collapsed",  # "expanded"에서 "collapsed"로 변경
+    menu_items=None
+)
+
+# CSS로 사이드바 버튼 숨기기
+st.markdown(
+    """
+    <style>
+        [data-testid="collapsedControl"] {
+            visibility: hidden;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
 from database import update_user_profile, get_user_profile
 from utils.session_utils import clear_goal_session
 from utils.auth_utils import login_required, init_auth
@@ -55,7 +77,7 @@ with st.form("profile_form"):
             }
             
             update_user_profile(profile_data)
-            st.success("프로필이 업���이트되었습니다!")
+            st.success("프로필이 업데이트되었습니다!")
             
         except Exception as e:
             st.error(f"프로필 업데이트 중 오류가 발생했습니다: {str(e)}")

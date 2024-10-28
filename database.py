@@ -12,9 +12,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
+from datetime import datetime, date
 import pandas as pd
 import streamlit as st
+import pytz
 
 # 데이터베이스 연결 정보
 def get_database_url():
@@ -93,6 +94,7 @@ class Board(Base):
     content = Column(Text)
     image_path = Column(String)  # 이미지 경로 저장
     board_type = Column(String, nullable=False)  # 'info' 또는 'idea'
+    reflection_date = Column(Date)  # 추가
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
@@ -164,6 +166,13 @@ def add_goal(
 ):
     db = get_db()
     try:
+        # timezone 처리
+        kst = pytz.timezone('Asia/Seoul')
+        if start_date and start_date.tzinfo is None:
+            start_date = kst.localize(start_date)
+        if end_date and end_date.tzinfo is None:
+            end_date = kst.localize(end_date)
+            
         # category_id를 int로 변환
         if category_id is not None:
             category_id = int(category_id)
@@ -337,15 +346,17 @@ def delete_goal(goal_id: int):
 
 
 # 게시판 관련 CRUD 함수들
-def add_post(title: str, content: str, board_type: str, image_path: str = None):
+def add_post(title: str, content: str, board_type: str, image_path: str = None, reflection_date: date = None):
+    """게시글을 추가하는 함수"""
     db = SessionLocal()
     try:
         post = Board(
-            user_id=st.session_state.user_id,  # 사용자 ID 추가
+            user_id=st.session_state.user_id,
             title=title,
             content=content,
             board_type=board_type,
-            image_path=image_path
+            image_path=image_path,
+            reflection_date=reflection_date
         )
         db.add(post)
         db.commit()
@@ -361,7 +372,7 @@ def get_posts(board_type: str):
         SELECT * FROM boards 
         WHERE board_type = %(board_type)s 
         AND user_id = %(user_id)s 
-        ORDER BY created_at DESC
+        ORDER BY reflection_date DESC, created_at DESC
         """
         return pd.read_sql_query(
             query, 
@@ -386,13 +397,14 @@ def get_post(post_id: int):
     finally:
         db.close()
 
-def update_post(post_id: int, title: str, content: str, image_path: str = None):
+def update_post(post_id: int, title: str, content: str, image_path: str = None, reflection_date: date = None):
+    """게시글을 수정하는 함수"""
     db = SessionLocal()
     try:
         post = (
             db.query(Board)
             .filter(Board.id == post_id)
-            .filter(Board.user_id == st.session_state.user_id)  # 사용자 확인
+            .filter(Board.user_id == st.session_state.user_id)
             .first()
         )
         if post:
@@ -400,6 +412,9 @@ def update_post(post_id: int, title: str, content: str, image_path: str = None):
             post.content = content
             if image_path:
                 post.image_path = image_path
+            if reflection_date:
+                post.reflection_date = reflection_date
+            post.updated_at = datetime.now()
             db.commit()
             return post
         return None
@@ -567,7 +582,7 @@ def update_user_profile(profile_data):
         db.close()
 
 def get_todays_goals():
-    """오늘의 목표를 져오는 함수"""
+    """오늘의 목표를 져오 함수"""
     db = SessionLocal()
     try:
         today = datetime.now().date()
@@ -646,41 +661,43 @@ def create_initial_profile(user_id: int):
     finally:
         db.close()
 
-def get_user_by_credentials(username: str) -> dict:
-    """사용자 인증 정보를 조회하는 함수"""
+def get_user_by_credentials(email: str) -> dict:
+    """이메일로 사용자 인증 정보를 조회하는 함수"""
     db = SessionLocal()
     try:
         query = text("""
-        SELECT id, username, password_hash
+        SELECT id, email, username, password_hash, is_active
         FROM users
-        WHERE username = :username
+        WHERE email = :email
         """)
-        result = db.execute(query, {'username': username}).fetchone()
+        result = db.execute(query, {'email': email}).fetchone()
         if result:
             return {
                 'id': result[0],
-                'username': result[1],
-                'password_hash': result[2]
+                'email': result[1],
+                'username': result[2],
+                'password_hash': result[3],
+                'is_active': result[4]
             }
         return None
     finally:
         db.close()
 
-def get_user_by_username(username: str) -> dict:
-    """사용자명으로 사용자를 조회하는 함수"""
+def get_user_by_email(email: str) -> dict:
+    """이메일로 사용자를 조회하는 함수"""
     db = SessionLocal()
     try:
         query = text("""
-        SELECT id, username, email
+        SELECT id, email, username
         FROM users
-        WHERE username = :username
+        WHERE email = :email
         """)
-        result = db.execute(query, {'username': username}).fetchone()
+        result = db.execute(query, {'email': email}).fetchone()
         if result:
             return {
                 'id': result[0],
-                'username': result[1],
-                'email': result[2]
+                'email': result[1],
+                'username': result[2]
             }
         return None
     finally:
@@ -789,6 +806,13 @@ def get_user_by_id(user_id: int) -> dict:
         return None
     finally:
         db.close()
+
+
+
+
+
+
+
 
 
 

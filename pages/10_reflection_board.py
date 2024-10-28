@@ -1,8 +1,7 @@
 import streamlit as st
-
 st.set_page_config(
-    page_title="정보 게시판",
-    page_icon="📢",
+    page_title="회고 게시판",
+    page_icon="📝",
     layout="wide",
     initial_sidebar_state="collapsed",
     menu_items=None
@@ -20,7 +19,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-from utils.board_components import render_post_list, render_post_detail, render_post_form
+from datetime import datetime
+from utils.board_components import render_reflection_list, render_reflection_detail, render_reflection_form
 from utils.session_utils import clear_goal_session
 from utils.auth_utils import login_required, init_auth
 from utils.menu_utils import show_menu
@@ -37,15 +37,17 @@ clear_goal_session()
 # 메뉴 표시 추가
 show_menu()
 
+
+
 # URL 파라미터 처리
 mode = st.query_params.get("mode", "list")
 post_id = st.query_params.get("post_id")
 
 if mode == "list":
-    render_post_list("info", "정보 게시판")
+    render_reflection_list()
 elif mode == "write":
-    render_post_form("info")
+    render_reflection_form()
 elif mode == "view" and post_id:
-    render_post_detail(int(post_id), "info")
+    render_reflection_detail(int(post_id))
 elif mode == "edit" and post_id:
-    render_post_form("info", int(post_id))
+    render_reflection_form(int(post_id))

@@ -25,7 +25,8 @@ def show_menu():
         "💡 아이디어 게시판": "pages/6_idea_board.py",
         "🔗 링크 게시판": "pages/8_link_board.py",
         "📖 사용자 가이드": "pages/7_guide.py",
-        "👤 프로필 관리": "pages/9_user_profile.py"
+        "👤 프로필 관리": "pages/9_user_profile.py",
+        "📝 회고 게시판": "pages/10_reflection_board.py"  # 회고 게시판 메뉴 추가
     }
     
     # 메뉴 렌더링
