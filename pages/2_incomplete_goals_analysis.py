@@ -62,7 +62,7 @@ else:
     filtered_dfs = {
         "어제": goals_df[
             (
-                pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul').dt.date
+                pd.to_datetime(goals_df["end_date"]).dt.tz_convert('Asia/Seoul').dt.date
                 == (current_time - timedelta(days=1)).date()
             )
             & (goals_df["status"] != "완료")
@@ -70,19 +70,19 @@ else:
         
         "지난 주": goals_df[
             (
-                pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul')
+                pd.to_datetime(goals_df["end_date"]).dt.tz_convert('Asia/Seoul')
                 >= (current_time - timedelta(days=7))
             )
-            & (pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul') < current_time)
+            & (pd.to_datetime(goals_df["end_date"]).dt.tz_convert('Asia/Seoul') < current_time)
             & (goals_df["status"] != "완료")
         ].sort_values(by='start_date', ascending=False),
         
         "지난 달": goals_df[
             (
-                pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul')
+                pd.to_datetime(goals_df["end_date"]).dt.tz_convert('Asia/Seoul')
                 >= (current_time - timedelta(days=30))
             )
-            & (pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul') < current_time)
+            & (pd.to_datetime(goals_df["end_date"]).dt.tz_convert('Asia/Seoul') < current_time)
             & (goals_df["status"] != "완료")
         ].sort_values(by='start_date', ascending=False),
     }

@@ -168,16 +168,30 @@ def add_goal(
     try:
         # timezone 처리
         kst = pytz.timezone('Asia/Seoul')
-        if start_date and start_date.tzinfo is None:
-            start_date = kst.localize(start_date)
-        if end_date and end_date.tzinfo is None:
-            end_date = kst.localize(end_date)
+        
+        # 입력받은 datetime이 이미 timezone 정보를 가지고 있다면 KST로 변환
+        if start_date:
+            if start_date.tzinfo:
+                start_date = start_date.astimezone(kst)
+            else:
+                start_date = kst.localize(start_date)
+            # UTC로 변환하여 저장
+            start_date = start_date.astimezone(pytz.UTC)
+            
+        if end_date:
+            if end_date.tzinfo:
+                end_date = end_date.astimezone(kst)
+            else:
+                end_date = kst.localize(end_date)
+            # UTC로 변환하여 저장
+            end_date = end_date.astimezone(pytz.UTC)
             
         # category_id를 int로 변환
         if category_id is not None:
             category_id = int(category_id)
+            
         goal = Goal(
-            user_id=st.session_state.user_id,  # 사용자 ID 추가
+            user_id=st.session_state.user_id,
             title=title,
             start_date=start_date,
             end_date=end_date,
@@ -202,12 +216,31 @@ def get_goals():
     """현재 로그인한 사용자의 목표만 조회"""
     db = SessionLocal()
     try:
-        query = """
-        SELECT * FROM goals 
-        WHERE user_id = %(user_id)s 
-        ORDER BY start_date ASC
-        """
-        return pd.read_sql_query(query, engine, params={'user_id': st.session_state.user_id})
+        kst = pytz.timezone('Asia/Seoul')
+        goals = db.query(Goal).filter(Goal.user_id == st.session_state.user_id).all()
+        
+        # 결과를 DataFrame으로 변환하기 전에 timezone 처리
+        goals_data = []
+        for goal in goals:
+            # UTC에서 KST로 변환
+            start_date = goal.start_date.replace(tzinfo=pytz.UTC).astimezone(kst) if goal.start_date else None
+            end_date = goal.end_date.replace(tzinfo=pytz.UTC).astimezone(kst) if goal.end_date else None
+            
+            goal_dict = {
+                'id': goal.id,
+                'title': goal.title,
+                'start_date': start_date,
+                'end_date': end_date,
+                'trigger_action': goal.trigger_action,
+                'importance': goal.importance,
+                'memo': goal.memo,
+                'status': goal.status,
+                'category_id': goal.category_id,
+                'created_at': goal.created_at
+            }
+            goals_data.append(goal_dict)
+            
+        return pd.DataFrame(goals_data)
     finally:
         db.close()
 
@@ -216,11 +249,26 @@ def update_goal(goal_id, **kwargs):
     db = SessionLocal()
     try:
         goal = db.query(Goal).filter(Goal.id == goal_id).first()
+        
+        # timezone 처리
+        kst = pytz.timezone('Asia/Seoul')
+        
         for key, value in kwargs.items():
+            # start_date와 end_date에 대해 timezone 처리
+            if key in ['start_date', 'end_date'] and value:
+                if value.tzinfo:
+                    value = value.astimezone(kst)
+                else:
+                    value = kst.localize(value)
+                # UTC로 변환하여 저장
+                value = value.astimezone(pytz.UTC)
+            
             # category_id를 int로 변환
             if key == 'category_id' and value is not None:
                 value = int(value)
+                
             setattr(goal, key, value)
+            
         db.commit()
     finally:
         db.close()
@@ -806,6 +854,8 @@ def get_user_by_id(user_id: int) -> dict:
         return None
     finally:
         db.close()
+
+
 
 
 

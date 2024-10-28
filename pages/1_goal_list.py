@@ -67,113 +67,113 @@ else:
         "오늘": goals_df[
             # 오늘 시작하는 목표
             (
-                pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul').dt.date 
+                pd.to_datetime(goals_df["start_date"]).dt.date 
                 == current_time.date()
             )
             |
             # 오늘 끝나는 목표
             (
-                pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul').dt.date 
+                pd.to_datetime(goals_df["end_date"]).dt.date 
                 == current_time.date()
             )
             |
             # 현재 진행 중인 목표
             (
-                (pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul') <= current_time)
-                & (pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul') >= current_time)
+                (pd.to_datetime(goals_df["start_date"]) <= current_time)
+                & (pd.to_datetime(goals_df["end_date"]) >= current_time)
             )
         ],
         "내일": goals_df[
             (
-                pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul').dt.date
+                pd.to_datetime(goals_df["start_date"]).dt.date
                 == (current_time + timedelta(days=1)).date()
             )
             |
             (
-                pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul').dt.date
+                pd.to_datetime(goals_df["end_date"]).dt.date
                 == (current_time + timedelta(days=1)).date()
             )
         ],
         "2일 후": goals_df[
             (
-                pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul').dt.date
+                pd.to_datetime(goals_df["start_date"]).dt.date
                 == (current_time + timedelta(days=2)).date()
             )
             |
             (
-                pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul').dt.date
+                pd.to_datetime(goals_df["end_date"]).dt.date
                 == (current_time + timedelta(days=2)).date()
             )
         ],
         "3일 후": goals_df[
             (
-                pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul').dt.date
+                pd.to_datetime(goals_df["start_date"]).dt.date
                 == (current_time + timedelta(days=3)).date()
             )
             |
             (
-                pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul').dt.date
+                pd.to_datetime(goals_df["end_date"]).dt.date
                 == (current_time + timedelta(days=3)).date()
             )
         ],
         "1주": goals_df[
             (
-                (pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul') >= current_time)
+                (pd.to_datetime(goals_df["start_date"]) >= current_time)
                 & (
-                    pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul')
+                    pd.to_datetime(goals_df["start_date"])
                     <= current_time + timedelta(days=7)
                 )
             )
             | (
-                (pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul') >= current_time)
+                (pd.to_datetime(goals_df["end_date"]) >= current_time)
                 & (
-                    pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul')
+                    pd.to_datetime(goals_df["end_date"])
                     <= current_time + timedelta(days=7)
                 )
             )
             | (
-                (pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul') <= current_time)
-                & (pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul') >= current_time)
+                (pd.to_datetime(goals_df["start_date"]) <= current_time)
+                & (pd.to_datetime(goals_df["end_date"]) >= current_time)
             )
         ],
         "1개월": goals_df[
             (
-                (pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul') >= current_time)
+                (pd.to_datetime(goals_df["start_date"]) >= current_time)
                 & (
-                    pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul')
+                    pd.to_datetime(goals_df["start_date"])
                     <= current_time + timedelta(days=30)
                 )
             )
             | (
-                (pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul') >= current_time)
+                (pd.to_datetime(goals_df["end_date"]) >= current_time)
                 & (
-                    pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul')
+                    pd.to_datetime(goals_df["end_date"])
                     <= current_time + timedelta(days=30)
                 )
             )
             | (
-                (pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul') <= current_time)
-                & (pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul') >= current_time)
+                (pd.to_datetime(goals_df["start_date"]) <= current_time)
+                & (pd.to_datetime(goals_df["end_date"]) >= current_time)
             )
         ],
         "1년": goals_df[
             (
-                (pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul') >= current_time)
+                (pd.to_datetime(goals_df["start_date"]) >= current_time)
                 & (
-                    pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul')
+                    pd.to_datetime(goals_df["start_date"])
                     <= current_time + timedelta(days=365)
                 )
             )
             | (
-                (pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul') >= current_time)
+                (pd.to_datetime(goals_df["end_date"]) >= current_time)
                 & (
-                    pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul')
+                    pd.to_datetime(goals_df["end_date"])
                     <= current_time + timedelta(days=365)
                 )
             )
             | (
-                (pd.to_datetime(goals_df["start_date"]).dt.tz_localize('Asia/Seoul') <= current_time)
-                & (pd.to_datetime(goals_df["end_date"]).dt.tz_localize('Asia/Seoul') >= current_time)
+                (pd.to_datetime(goals_df["start_date"]) <= current_time)
+                & (pd.to_datetime(goals_df["end_date"]) >= current_time)
             )
         ],
         "전체": goals_df,
@@ -210,6 +210,8 @@ else:
                     if incomplete_goals.empty:
                         st.info("진행 중인 목표가 없습니다.")
                     else:
+                        # 시작 시간 기준으로 정렬
+                        incomplete_goals = incomplete_goals.sort_values(by='start_date', ascending=True)
                         for idx, goal in incomplete_goals.iterrows():
                             start_datetime = pd.to_datetime(goal["start_date"])
                             end_datetime = pd.to_datetime(goal["end_date"])
@@ -249,6 +251,8 @@ else:
                     if complete_goals.empty:
                         st.info("완료된 목표가 없습니다.")
                     else:
+                        # 시작 시간 기준으로 정렬
+                        complete_goals = complete_goals.sort_values(by='start_date', ascending=True)
                         for idx, goal in complete_goals.iterrows():
                             start_datetime = pd.to_datetime(goal["start_date"])
                             end_datetime = pd.to_datetime(goal["end_date"])
@@ -270,14 +274,15 @@ else:
 
                 # 미완료된 목표 (오늘 전) - 전체 너비로 표시
                 st.subheader("미완료된 목표")
-                # 오늘 이전의 미완료 목표 필터링
                 overdue_goals = goals_df[
-                    (pd.to_datetime(goals_df["end_date"]) < pd.Timestamp(current_time.date())) &
+                    (pd.to_datetime(goals_df["end_date"]).dt.tz_convert('Asia/Seoul').dt.date < current_time.date()) &
                     (goals_df["status"] != "완료")
                 ]
                 if overdue_goals.empty:
                     st.info("미완료된 목표가 없습니다.")
                 else:
+                    # 시작 시간 기준으로 정렬
+                    overdue_goals = overdue_goals.sort_values(by='start_date', ascending=True)
                     for idx, goal in overdue_goals.iterrows():
                         start_datetime = pd.to_datetime(goal["start_date"])
                         end_datetime = pd.to_datetime(goal["end_date"])
@@ -348,6 +353,8 @@ else:
                     if incomplete_goals.empty:
                         st.info("진행 중인 목표가 없습니다.")
                     else:
+                        # 시작 시간 기준으로 정렬
+                        incomplete_goals = incomplete_goals.sort_values(by='start_date', ascending=True)
                         for idx, goal in incomplete_goals.iterrows():
                             start_datetime = pd.to_datetime(goal["start_date"])
                             end_datetime = pd.to_datetime(goal["end_date"])
@@ -387,11 +394,13 @@ else:
                     if complete_goals.empty:
                         st.info("완료된 목표가 없습니다.")
                     else:
+                        # 시작 시간 기준으로 정렬
+                        complete_goals = complete_goals.sort_values(by='start_date', ascending=True)
                         for idx, goal in complete_goals.iterrows():
                             start_datetime = pd.to_datetime(goal["start_date"])
                             end_datetime = pd.to_datetime(goal["end_date"])
                             
-                            # 날짜와 시간 포맷팅
+                            # 날짜와 시��� 포맷팅
                             date_str = start_datetime.strftime("%Y-%m-%d")
                             start_time_str = format_time(start_datetime)
                             end_time_str = format_time(end_datetime)
@@ -418,6 +427,10 @@ else:
     # 시간순으로 정렬
     for period in filtered_dfs:
         filtered_dfs[period] = filtered_dfs[period].sort_values(by='start_date')
+
+
+
+
 
 
 

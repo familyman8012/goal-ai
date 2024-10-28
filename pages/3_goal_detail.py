@@ -74,6 +74,29 @@ if goal_id:
 else:
     st.title("새 목표 추가")
 
+def get_local_datetime(date, time_str):
+    """날짜와 시간 문자열을 받아 한국 시간대의 datetime 객체를 반환"""
+    try:
+        # 시간 문자열 파싱
+        time_obj = datetime.strptime(time_str, "%H:%M").time()
+        # 날짜와 시간 결합
+        dt = datetime.combine(date, time_obj)
+        # 한국 시간대 적용
+        kst = pytz.timezone('Asia/Seoul')
+        return kst.localize(dt)
+    except ValueError:
+        st.error("올바른 시간 형식을 입력해주세요 (예: 14:30)")
+        return None
+
+def format_datetime_for_display(dt):
+    """datetime 객체를 표시용 문자열로 변환"""
+    if dt is None:
+        return ""
+    if dt.tzinfo is None:
+        kst = pytz.timezone('Asia/Seoul')
+        dt = kst.localize(dt)
+    return dt.strftime("%H:%M")
+
 # 입력 필드
 title = st.text_input("목표", value=goal["title"] if goal is not None else "")
 
@@ -86,25 +109,19 @@ with col1:
         value=(
             pd.to_datetime(goal["start_date"]).date()
             if goal is not None and pd.notnull(goal["start_date"])
-            else default_start
+            else default_start.date()
         ),
     )
     
-    # time_input을 text_input으로 변경
     start_time_str = st.text_input(
         "시작 시간",
         value=(
-            pd.to_datetime(goal["start_date"]).strftime("%H:%M")
+            format_datetime_for_display(pd.to_datetime(goal["start_date"]))
             if goal is not None and pd.notnull(goal["start_date"])
             else default_start.strftime("%H:%M")
         ),
         help="24시간 형식으로 입력해주세요 (예: 14:30)"
     )
-    try:
-        start_time = datetime.strptime(start_time_str, "%H:%M").time()
-    except ValueError:
-        st.error("올바른 시간 형식을 입력해주세요 (예: 14:30)")
-        start_time = default_start.time()
 
 with col2:
     default_end = datetime.now(pytz.timezone('Asia/Seoul'))
@@ -113,25 +130,19 @@ with col2:
         value=(
             pd.to_datetime(goal["end_date"]).date()
             if goal is not None and pd.notnull(goal["end_date"])
-            else default_end
+            else default_end.date()
         ),
     )
     
-    # time_input을 text_input으로 변경
     end_time_str = st.text_input(
         "종료 시간",
         value=(
-            pd.to_datetime(goal["end_date"]).strftime("%H:%M")
+            format_datetime_for_display(pd.to_datetime(goal["end_date"]))
             if goal is not None and pd.notnull(goal["end_date"])
             else default_end.strftime("%H:%M")
         ),
         help="24시간 형식으로 입력해주세요 (예: 14:30)"
     )
-    try:
-        end_time = datetime.strptime(end_time_str, "%H:%M").time()
-    except ValueError:
-        st.error("올바른 시간 형식을 입력해주세요 (예: 14:30)")
-        end_time = default_end.time()
 
 trigger_action = st.text_input(
     "트리거(원인과 결과)", 
@@ -194,22 +205,21 @@ if end_date < start_date:
 else:
     if st.button("저장"):
         try:
-            # KST 시간대 적용
-            kst = pytz.timezone('Asia/Seoul')
+            # 시작 시간과 종료 시간 생성
+            start_datetime = get_local_datetime(start_date, start_time_str)
+            end_datetime = get_local_datetime(end_date, end_time_str)
             
-            # datetime 객체 생성 시 KST 적용
-            start_datetime = kst.localize(datetime.combine(start_date, start_time))
-            end_datetime = kst.localize(datetime.combine(end_date, end_time))
-            
-            if end_datetime < start_datetime:
+            if start_datetime is None or end_datetime is None:
+                st.error("올바른 시간 형식을 입력해주세요.")
+            elif end_datetime < start_datetime:
                 st.error("종료일시는 시작일시보다 늦어야 합니다.")
             else:
                 if goal_id:
                     update_goal(
                         int(goal_id),
                         title=title,
-                        start_date=start_datetime,  # datetime 객체 전달
-                        end_date=end_datetime,      # datetime 객체 전달
+                        start_date=start_datetime,
+                        end_date=end_datetime,
                         trigger_action=trigger_action,
                         importance=importance,
                         memo=memo,
@@ -219,8 +229,8 @@ else:
                 else:
                     add_goal(
                         title,
-                        start_datetime,             # datetime 객체 전달
-                        end_datetime,               # datetime 객체 전달
+                        start_datetime,
+                        end_datetime,
                         trigger_action,
                         importance,
                         memo,
@@ -228,7 +238,6 @@ else:
                         category_id,
                     )
                 st.success("저장되었습니다!")
-                # 세션 상태 정리
                 st.session_state.pop('current_goal_id', None)
                 st.session_state.pop('goals_df', None)
                 st.query_params.clear()
