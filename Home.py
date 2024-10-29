@@ -38,7 +38,7 @@ from database import (
     get_incomplete_goals,
 )
 from config import OPENAI_API_KEY
-from utils.llm_utils import LLMFactory, StreamHandler
+from utils.llm_utils import LLMFactory, StreamHandler, ChatMemory
 import uuid
 from utils.date_utils import parse_weekdays, generate_recurring_dates
 from utils.pplx_utils import search_with_pplx
@@ -184,8 +184,7 @@ def generate_system_message():
             goals_details.append(goal_detail)
         incomplete_goals_str = "\n\n".join(goals_details)
 
-    return f"""당신은 사용자의 AI 컨설턴트입니다. 
-    당신은 세계 최고의 동기부여가입니다.
+    return f"""
     
     {profile.get("content", "")}
     
@@ -194,38 +193,25 @@ def generate_system_message():
     
     미완료된 목표:
     {incomplete_goals_str}
-    
-    첫 인사시, 오늘의 할일과 미완료된 목표를 언급하고,
-    오늘의 할일에 대해서는 격려와 응원을,
-    미완료된 목표에 대해서는 주의를 환기시켜주세요.
+
     
     {profile.get('consultant_style', '')}
     """
 
 
-# 채팅 기록 초기화
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-    # 시스템 메시지는 history_key에 저장됨
-
 # 세션 ID 생성 (앱 시작시)
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 
-# 메시지 기록 키 생성
-history_key = f"chat_history_{st.session_state.session_id}"
+# ChatMemory 초기화
+memory = ChatMemory(st.session_state.session_id)
 
-# 메시지 기록 초기화
-if history_key not in st.session_state:
-    st.session_state[history_key] = StreamlitChatMessageHistory(
-        key=history_key
-    )
-    # 시스템 메시지 추가
-    st.session_state[history_key].add_ai_message(generate_system_message())
+# 시스템 메시지 추가 (처음 한 번만)
+if not memory.get_messages():
+    memory.add_message("system", generate_system_message())
 
 # 이전 메시지 표시 (시스템 메시지 제외)
-for msg in st.session_state[history_key].messages[1:]:  # 시스템 메시지 제외
-    # AIMessage와 HumanMessage 객체 처리
+for msg in memory.get_messages()[1:]:  # 시스템 메시지 제외
     with st.chat_message(
         "user" if isinstance(msg, HumanMessage) else "assistant"
     ):
@@ -237,25 +223,20 @@ if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
     with st.chat_message("user"):
         st.write(prompt)
 
-    # 사용자 메시지 저장 (HumanMessage 사용)
-    st.session_state[history_key].add_user_message(prompt)
-
     # 일반 대화 처리
     chat_container = st.chat_message("assistant")
     stream_handler = StreamHandler(chat_container)
 
+    # LLM 응답 생성
     assistant_response = LLMFactory.get_response(
         st.session_state.selected_model,
-        generate_system_message(),  # 시스템 메시지 새로 생성
+        generate_system_message(),
         prompt,
         st.session_state.session_id,
         stream_handler=stream_handler,
     )
 
-    # AI 응답 저장 (AIMessage 사용)
-    st.session_state[history_key].add_ai_message(assistant_response)
-
-# 모델 선택 드다운 추가
+# 모델 선택 드롭다운 추가
 st.sidebar.title("AI 모델 설정")
 model_options = {
     "GPT-4o": "gpt-4o",
@@ -266,7 +247,7 @@ model_options = {
     "Gemini-Flash": "gemini-1.5-flash-latest",
 }
 
-# 션 상태에 선택된 모델 저장 (기본값을 Claude-3-Haiku로 정)
+# 세션 상태에 선택된 모델 저장 (기본값을 Claude-3-Haiku로 설정)
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = model_options["Claude-3-Haiku"]
 

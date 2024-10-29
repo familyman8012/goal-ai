@@ -1,20 +1,13 @@
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.chat_message_histories import (
-    StreamlitChatMessageHistory,
-)
-from langchain.memory import ConversationBufferWindowMemory
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.runnables.history import RunnableWithMessageHistory
-import os
-from dotenv import load_dotenv
-from langchain.callbacks.base import BaseCallbackHandler
-import streamlit as st
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+import streamlit as st
+from dotenv import load_dotenv
+import os
+from langchain.callbacks.base import BaseCallbackHandler
 
 
-# 환경 변수 가져오기 함수
 def get_api_key(key_name: str) -> str:
     if hasattr(st, "secrets"):  # Streamlit Cloud 환경
         return st.secrets["api_keys"][key_name]
@@ -37,79 +30,70 @@ class StreamHandler(BaseCallbackHandler):
         self.placeholder.markdown(self.text)
 
 
-class HybridChatMemory:
-    def __init__(self, session_id: str, window_size: int = 5):
+class ChatMemory:
+    def __init__(self, session_id: str, max_messages: int = 10):
         self.history_key = f"chat_history_{session_id}"
-        self.summary_key = f"chat_summary_{session_id}"
+        self.max_messages = max_messages
+        self.buffer_key = f"chat_buffer_{session_id}"
 
-        # StreamlitChatMessageHistory 초기화
+        # 세션 상태 초기화
         if self.history_key not in st.session_state:
-            st.session_state[self.history_key] = StreamlitChatMessageHistory(
-                key=self.history_key
-            )
+            st.session_state[self.history_key] = []
+        if self.buffer_key not in st.session_state:
+            st.session_state[self.buffer_key] = []
 
-        # 버퍼 메모리 초기화 (최근 N개 메시지만 유지)
-        self.buffer_memory = ConversationBufferWindowMemory(k=window_size)
-
-        # 요약 저장소
-        if self.summary_key not in st.session_state:
-            st.session_state[self.summary_key] = ""
-
-    def add_message(self, message):
+    def add_message(self, role: str, content: str):
         # 메시지 객체 생성
-        if message["role"] == "user":
-            msg = HumanMessage(content=message["content"])
-        elif message["role"] == "assistant":
-            msg = AIMessage(content=message["content"])
+        if role == "user":
+            message = HumanMessage(content=content)
+        elif role == "assistant":
+            message = AIMessage(content=content)
         else:
-            msg = SystemMessage(content=message["content"])
+            message = SystemMessage(content=content)
 
-        # StreamlitChatMessageHistory에 메시지 추가
-        st.session_state[self.history_key].add_message(msg)
+        # 시스템 메시지는 history의 첫 번째 위치에만 저장
+        if isinstance(message, SystemMessage):
+            if not st.session_state[self.history_key] or not isinstance(
+                st.session_state[self.history_key][0], SystemMessage
+            ):
+                st.session_state[self.history_key].insert(0, message)
+        else:
+            # 일반 메시지는 버퍼에 추가
+            st.session_state[self.buffer_key].append(message)
+            if len(st.session_state[self.buffer_key]) > self.max_messages:
+                self._move_to_history()
 
-        # 버퍼 메모리 업데이트
-        if (
-            len(st.session_state[self.history_key].messages)
-            > self.buffer_memory.k
-        ):
-            # 오래된 메시지 요약
-            messages_to_summarize = st.session_state[
-                self.history_key
-            ].messages[: -self.buffer_memory.k]
-            self._update_summary(messages_to_summarize)
+    def get_messages(self):
+        # 시스템 메시지 + 버퍼의 메시지 반환
+        system_messages = [
+            msg
+            for msg in st.session_state[self.history_key]
+            if isinstance(msg, SystemMessage)
+        ]
+        return system_messages + st.session_state[self.buffer_key]
 
-            # 최근 메시지만 버퍼에 유지
-            recent_messages = st.session_state[self.history_key].messages[
-                -self.buffer_memory.k :
-            ]
-            self.buffer_memory.clear()
-            for msg in recent_messages:
-                if isinstance(msg, HumanMessage):
-                    self.buffer_memory.save_context(
-                        {"input": msg.content}, {"output": ""}
-                    )
-                elif isinstance(msg, AIMessage):
-                    self.buffer_memory.save_context(
-                        {"input": ""}, {"output": msg.content}
-                    )
+    def _move_to_history(self):
+        # 버퍼의 절반을 요약하여 history로 이동
+        messages_to_summarize = st.session_state[self.buffer_key][
+            : (self.max_messages // 2)
+        ]
+        st.session_state[self.buffer_key] = st.session_state[self.buffer_key][
+            (self.max_messages // 2) :
+        ]
 
-    def _update_summary(self, messages):
-        # 요약 생성 로직
-        llm = LLMFactory.create_llm(st.session_state.selected_model)
-        summary_prompt = f"""
-        다음 대화 내용을 간단히 요약해주세요:
-        {[msg.content for msg in messages]}
-        """
-        summary = llm.predict(summary_prompt)
-        st.session_state[self.summary_key] = summary
+        if messages_to_summarize:
+            summary = self._create_summary(messages_to_summarize)
+            # 요약을 시스템 메시지 다음에 추가
+            st.session_state[self.history_key].append(summary)
 
-    def get_context(self):
-        return {
-            "summary": st.session_state[self.summary_key],
-            "recent_messages": self.buffer_memory.load_memory_variables({})[
-                "history"
-            ],
-        }
+    def _create_summary(self, messages):
+        summary_content = "이전 대화 요약:\n"
+        for msg in messages:
+            if isinstance(msg, HumanMessage):
+                summary_content += f"사용자: {msg.content}\n"
+            elif isinstance(msg, AIMessage):
+                summary_content += f"AI: {msg.content}\n"
+        return SystemMessage(content=summary_content)
 
 
 class LLMFactory:
@@ -151,38 +135,25 @@ class LLMFactory:
         stream_handler: StreamHandler = None,
     ) -> str:
         llm = LLMFactory.create_llm(model_name)
+        memory = ChatMemory(session_id)
 
         try:
-            # 하이브리드 메모리 초기화
-            memory = HybridChatMemory(session_id)
-            context = memory.get_context()
+            messages = memory.get_messages()
 
-            # 시스템 프롬프트에 컨텍스트 포함
-            full_system_prompt = f"""
-            {system_prompt}
+            # 시스템 메시지가 없거나 첫 번째가 아닌 경우에만 추가
+            if not messages or not isinstance(messages[0], SystemMessage):
+                memory.add_message("system", system_prompt)
+                messages = memory.get_messages()
 
-            이전 대화 요약:
-            {context['summary']}
+            # 사용자 메시지 추가
+            memory.add_message("user", user_input)
 
-            최근 대화:
-            {context['recent_messages']}
-            """
-
-            # 프롬프트 템플릿 생성 (시스템 메시지를 맨 앞에 배치)
-            prompt = ChatPromptTemplate.from_messages(
-                [
-                    (
-                        "system",
-                        full_system_prompt,
-                    ),  # 시스템 메시지를 하나로 통합
-                    ("human", "{input}"),
-                ]
-            )
+            # 최신 메시지 목록 가져오기
+            messages = memory.get_messages()
 
             # 응답 생성
-            chain = prompt | llm
-            response = chain.invoke(
-                {"input": user_input},
+            response = llm.invoke(
+                messages,
                 config={
                     "callbacks": (
                         [stream_handler]
@@ -193,11 +164,8 @@ class LLMFactory:
                 },
             )
 
-            # 메시지 저장
-            memory.add_message({"role": "user", "content": user_input})
-            memory.add_message(
-                {"role": "assistant", "content": response.content}
-            )
+            # AI 응답 저장
+            memory.add_message("assistant", response.content)
 
             return response.content
 
