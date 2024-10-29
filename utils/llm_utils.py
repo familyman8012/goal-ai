@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from langchain.callbacks.base import BaseCallbackHandler
 import streamlit as st
 
+
 # 환경 변수 가져오기 함수
 def get_api_key(key_name: str) -> str:
     if hasattr(st, "secrets"):  # Streamlit Cloud 환경
@@ -13,6 +14,7 @@ def get_api_key(key_name: str) -> str:
     else:  # 로컬 환경
         load_dotenv()
         return os.getenv(key_name)
+
 
 class StreamHandler(BaseCallbackHandler):
     def __init__(self, container, initial_text=""):
@@ -26,6 +28,7 @@ class StreamHandler(BaseCallbackHandler):
 
     def on_llm_end(self, *args, **kwargs) -> None:
         self.placeholder.markdown(self.text)
+
 
 class LLMFactory:
     @staticmethod
@@ -66,27 +69,27 @@ class LLMFactory:
         stream_handler: StreamHandler = None,
     ) -> str:
         llm = LLMFactory.create_llm(model_name)
-        
+
         try:
             # 스트리밍 설정
             if stream_handler and not model_name.startswith("gemini"):
                 llm.callbacks = [stream_handler]
-            
+
             # 메시지 생성
             messages = [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_input}
+                {"role": "user", "content": user_input},
             ]
-            
+
             # 응답 생성
             response = llm.invoke(messages)
-            
+
             # 제미니 모델 처리
             if model_name.startswith("gemini") and stream_handler:
                 stream_handler.placeholder.markdown(response.content)
-            
+
             return response.content
-                
+
         except Exception as e:
             error_msg = f"오류가 발생했습니다: {str(e)}"
             if stream_handler:

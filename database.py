@@ -8,7 +8,7 @@ from sqlalchemy import (
     DateTime,
     Text,
     func,
-    text
+    text,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -17,11 +17,12 @@ import pandas as pd
 import streamlit as st
 import pytz
 
+
 # 데이터베이스 연결 정보
 def get_database_url():
     if hasattr(st, "secrets"):  # Streamlit Cloud 환경
         return (
-            f"postgresql://"
+            "postgresql://"
             f"{st.secrets.postgres.DB_USERNAME}:"
             f"{st.secrets.postgres.DB_PASSWORD}@"
             f"{st.secrets.postgres.DB_HOST}:"
@@ -30,16 +31,18 @@ def get_database_url():
         )
     else:  # 로컬 환경
         from dotenv import load_dotenv
+
         load_dotenv()
-        
+
         return (
-            f"postgresql://"
+            "postgresql://"
             f"{os.getenv('DB_USERNAME')}:"
             f"{os.getenv('DB_PASSWORD')}@"
             f"{os.getenv('DB_HOST')}:"
             f"{os.getenv('DB_PORT')}/"
             f"{os.getenv('DB_NAME')}"
         )
+
 
 DATABASE_URL = get_database_url()
 
@@ -57,7 +60,7 @@ class Goal(Base):
     user_id = Column(Integer, nullable=False)  # user_id 필드 추가
     title = Column(String, nullable=False)
     start_date = Column(DateTime)  # Date에서 DateTime으로 변경
-    end_date = Column(DateTime)    # Date에서 DateTime으로 변경
+    end_date = Column(DateTime)  # Date에서 DateTime으로 변경
     trigger_action = Column(String)
     importance = Column(Integer)
     memo = Column(Text)
@@ -112,12 +115,13 @@ class Link(Base):
 
 class UserProfile(Base):
     __tablename__ = "user_profile"
-    
+
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, nullable=False)  # user_id 컬럼 추가
     content = Column(Text)
     consultant_style = Column(Text)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
 
 # User 모델 추가
 class User(Base):
@@ -130,6 +134,7 @@ class User(Base):
     last_login = Column(DateTime)
     created_at = Column(DateTime, default=datetime.now)
 
+
 # Session 모델 추가
 class Session(Base):
     __tablename__ = "sessions"
@@ -140,6 +145,7 @@ class Session(Base):
     expires_at = Column(DateTime, nullable=False)
     last_activity = Column(DateTime, default=datetime.now)
     created_at = Column(DateTime, default=datetime.now)
+
 
 # 데이터베이스 테이블 생성
 Base.metadata.create_all(bind=engine)
@@ -167,8 +173,8 @@ def add_goal(
     db = get_db()
     try:
         # timezone 처리
-        kst = pytz.timezone('Asia/Seoul')
-        
+        kst = pytz.timezone("Asia/Seoul")
+
         # 입력받은 datetime이 이미 timezone 정보를 가지고 있다면 KST로 변환
         if start_date:
             if start_date.tzinfo:
@@ -177,7 +183,7 @@ def add_goal(
                 start_date = kst.localize(start_date)
             # UTC로 변환하여 저장
             start_date = start_date.astimezone(pytz.UTC)
-            
+
         if end_date:
             if end_date.tzinfo:
                 end_date = end_date.astimezone(kst)
@@ -185,11 +191,11 @@ def add_goal(
                 end_date = kst.localize(end_date)
             # UTC로 변환하여 저장
             end_date = end_date.astimezone(pytz.UTC)
-            
+
         # category_id를 int로 변환
         if category_id is not None:
             category_id = int(category_id)
-            
+
         goal = Goal(
             user_id=st.session_state.user_id,
             title=title,
@@ -216,30 +222,42 @@ def get_goals():
     """현재 로그인한 사용자의 목표만 조회"""
     db = SessionLocal()
     try:
-        kst = pytz.timezone('Asia/Seoul')
-        goals = db.query(Goal).filter(Goal.user_id == st.session_state.user_id).all()
-        
+        kst = pytz.timezone("Asia/Seoul")
+        goals = (
+            db.query(Goal)
+            .filter(Goal.user_id == st.session_state.user_id)
+            .all()
+        )
+
         # 결과를 DataFrame으로 변환하기 전에 timezone 처리
         goals_data = []
         for goal in goals:
             # UTC에서 KST로 변환
-            start_date = goal.start_date.replace(tzinfo=pytz.UTC).astimezone(kst) if goal.start_date else None
-            end_date = goal.end_date.replace(tzinfo=pytz.UTC).astimezone(kst) if goal.end_date else None
-            
+            start_date = (
+                goal.start_date.replace(tzinfo=pytz.UTC).astimezone(kst)
+                if goal.start_date
+                else None
+            )
+            end_date = (
+                goal.end_date.replace(tzinfo=pytz.UTC).astimezone(kst)
+                if goal.end_date
+                else None
+            )
+
             goal_dict = {
-                'id': goal.id,
-                'title': goal.title,
-                'start_date': start_date,
-                'end_date': end_date,
-                'trigger_action': goal.trigger_action,
-                'importance': goal.importance,
-                'memo': goal.memo,
-                'status': goal.status,
-                'category_id': goal.category_id,
-                'created_at': goal.created_at
+                "id": goal.id,
+                "title": goal.title,
+                "start_date": start_date,
+                "end_date": end_date,
+                "trigger_action": goal.trigger_action,
+                "importance": goal.importance,
+                "memo": goal.memo,
+                "status": goal.status,
+                "category_id": goal.category_id,
+                "created_at": goal.created_at,
             }
             goals_data.append(goal_dict)
-            
+
         return pd.DataFrame(goals_data)
     finally:
         db.close()
@@ -249,26 +267,26 @@ def update_goal(goal_id, **kwargs):
     db = SessionLocal()
     try:
         goal = db.query(Goal).filter(Goal.id == goal_id).first()
-        
+
         # timezone 처리
-        kst = pytz.timezone('Asia/Seoul')
-        
+        kst = pytz.timezone("Asia/Seoul")
+
         for key, value in kwargs.items():
             # start_date와 end_date에 대해 timezone 처리
-            if key in ['start_date', 'end_date'] and value:
+            if key in ["start_date", "end_date"] and value:
                 if value.tzinfo:
                     value = value.astimezone(kst)
                 else:
                     value = kst.localize(value)
                 # UTC로 변환하여 저장
                 value = value.astimezone(pytz.UTC)
-            
+
             # category_id를 int로 변환
-            if key == 'category_id' and value is not None:
+            if key == "category_id" and value is not None:
                 value = int(value)
-                
+
             setattr(goal, key, value)
-            
+
         db.commit()
     finally:
         db.close()
@@ -315,8 +333,7 @@ def add_category(name: str):
     db = SessionLocal()
     try:
         category = Category(
-            user_id=st.session_state.user_id,  # 사용자 ID 추가
-            name=name
+            user_id=st.session_state.user_id, name=name  # 사용자 ID 추가
         )
         db.add(category)
         db.commit()
@@ -334,7 +351,9 @@ def get_categories():
         WHERE user_id = %(user_id)s 
         ORDER BY name
         """
-        return pd.read_sql_query(query, engine, params={'user_id': st.session_state.user_id})
+        return pd.read_sql_query(
+            query, engine, params={"user_id": st.session_state.user_id}
+        )
     finally:
         db.close()
 
@@ -345,7 +364,9 @@ def update_category(category_id: int, name: str):
         category = (
             db.query(Category)
             .filter(Category.id == category_id)
-            .filter(Category.user_id == st.session_state.user_id)  # 사용자 확인
+            .filter(
+                Category.user_id == st.session_state.user_id
+            )  # 사용자 확인
             .first()
         )
         if category:
@@ -363,7 +384,9 @@ def delete_category(category_id: int):
         category = (
             db.query(Category)
             .filter(Category.id == category_id)
-            .filter(Category.user_id == st.session_state.user_id)  # 사용자 확인
+            .filter(
+                Category.user_id == st.session_state.user_id
+            )  # 사용자 확인
             .first()
         )
         if category:
@@ -394,7 +417,13 @@ def delete_goal(goal_id: int):
 
 
 # 게시판 관련 CRUD 함수들
-def add_post(title: str, content: str, board_type: str, image_path: str = None, reflection_date: date = None):
+def add_post(
+    title: str,
+    content: str,
+    board_type: str,
+    image_path: str = None,
+    reflection_date: date = None,
+):
     """게시글을 추가하는 함수"""
     db = SessionLocal()
     try:
@@ -404,7 +433,7 @@ def add_post(title: str, content: str, board_type: str, image_path: str = None, 
             content=content,
             board_type=board_type,
             image_path=image_path,
-            reflection_date=reflection_date
+            reflection_date=reflection_date,
         )
         db.add(post)
         db.commit()
@@ -412,6 +441,7 @@ def add_post(title: str, content: str, board_type: str, image_path: str = None, 
         return post
     finally:
         db.close()
+
 
 def get_posts(board_type: str):
     db = SessionLocal()
@@ -423,15 +453,16 @@ def get_posts(board_type: str):
         ORDER BY reflection_date DESC, created_at DESC
         """
         return pd.read_sql_query(
-            query, 
-            engine, 
+            query,
+            engine,
             params={
-                'board_type': board_type,
-                'user_id': st.session_state.user_id
-            }
+                "board_type": board_type,
+                "user_id": st.session_state.user_id,
+            },
         )
     finally:
         db.close()
+
 
 def get_post(post_id: int):
     db = SessionLocal()
@@ -445,7 +476,14 @@ def get_post(post_id: int):
     finally:
         db.close()
 
-def update_post(post_id: int, title: str, content: str, image_path: str = None, reflection_date: date = None):
+
+def update_post(
+    post_id: int,
+    title: str,
+    content: str,
+    image_path: str = None,
+    reflection_date: date = None,
+):
     """게시글을 수정하는 함수"""
     db = SessionLocal()
     try:
@@ -469,6 +507,7 @@ def update_post(post_id: int, title: str, content: str, image_path: str = None, 
     finally:
         db.close()
 
+
 def delete_post(post_id: int):
     db = SessionLocal()
     try:
@@ -487,7 +526,15 @@ def delete_post(post_id: int):
         db.close()
 
 
-def add_recurring_goals(title, dates, trigger_action="", importance=5, memo="", status="진행 전", category_id=None):
+def add_recurring_goals(
+    title,
+    dates,
+    trigger_action="",
+    importance=5,
+    memo="",
+    status="진행 전",
+    category_id=None,
+):
     """여러 날짜에 대해 동일한 목표를 추가하는 함수"""
     db = get_db()
     try:
@@ -511,6 +558,7 @@ def add_recurring_goals(title, dates, trigger_action="", importance=5, memo="", 
     finally:
         db.close()
 
+
 # CRUD 함수 추가
 def add_link(site_name: str, url: str):
     db = SessionLocal()
@@ -518,7 +566,7 @@ def add_link(site_name: str, url: str):
         link = Link(
             user_id=st.session_state.user_id,  # 사용자 ID 추가
             site_name=site_name,
-            url=url
+            url=url,
         )
         db.add(link)
         db.commit()
@@ -526,6 +574,7 @@ def add_link(site_name: str, url: str):
         return link
     finally:
         db.close()
+
 
 def get_links():
     db = SessionLocal()
@@ -535,9 +584,12 @@ def get_links():
         WHERE user_id = %(user_id)s 
         ORDER BY created_at DESC
         """
-        return pd.read_sql_query(query, engine, params={'user_id': st.session_state.user_id})
+        return pd.read_sql_query(
+            query, engine, params={"user_id": st.session_state.user_id}
+        )
     finally:
         db.close()
+
 
 def get_link(link_id: int):
     db = SessionLocal()
@@ -550,6 +602,7 @@ def get_link(link_id: int):
         )
     finally:
         db.close()
+
 
 def update_link(link_id: int, site_name: str, url: str):
     db = SessionLocal()
@@ -569,6 +622,7 @@ def update_link(link_id: int, site_name: str, url: str):
     finally:
         db.close()
 
+
 def delete_link(link_id: int):
     db = SessionLocal()
     try:
@@ -586,6 +640,7 @@ def delete_link(link_id: int):
     finally:
         db.close()
 
+
 # 사용자 프로필 관련 함수들
 def get_user_profile():
     """사용자 프로필 정보를 가져오는 함수"""
@@ -593,17 +648,20 @@ def get_user_profile():
     try:
         profile = (
             db.query(UserProfile)
-            .filter(UserProfile.user_id == st.session_state.user_id)  # 사용자 확인
+            .filter(
+                UserProfile.user_id == st.session_state.user_id
+            )  # 사용자 확인
             .first()
         )
         if profile:
             return {
-                'content': profile.content,
-                'consultant_style': profile.consultant_style
+                "content": profile.content,
+                "consultant_style": profile.consultant_style,
             }
         return {}
     finally:
         db.close()
+
 
 def update_user_profile(profile_data):
     """용자 프로필을 업데이트하는 함수"""
@@ -611,16 +669,20 @@ def update_user_profile(profile_data):
     try:
         profile = (
             db.query(UserProfile)
-            .filter(UserProfile.user_id == st.session_state.user_id)  # 사용자 확인
+            .filter(
+                UserProfile.user_id == st.session_state.user_id
+            )  # 사용자 확인
             .first()
         )
         if not profile:
-            profile = UserProfile(user_id=st.session_state.user_id)  # 새 프로필 생성 시 사용자 ID 추가
+            profile = UserProfile(
+                user_id=st.session_state.user_id
+            )  # 새 프로필 생성 시 사용자 ID 추가
             db.add(profile)
-        
+
         for key, value in profile_data.items():
             setattr(profile, key, value)
-        
+
         db.commit()
         return True
     except Exception as e:
@@ -628,6 +690,7 @@ def update_user_profile(profile_data):
         raise e
     finally:
         db.close()
+
 
 def get_todays_goals():
     """오늘의 목표를 져오 함수"""
@@ -644,6 +707,7 @@ def get_todays_goals():
     finally:
         db.close()
 
+
 def get_incomplete_goals():
     """미완료된 목표를 가져오는 함수"""
     db = SessionLocal()
@@ -659,29 +723,38 @@ def get_incomplete_goals():
     finally:
         db.close()
 
+
 def get_category_name(category_id: int) -> str:
     """카테고 ID로 카테고리 이름을 져오는 함수"""
     db = SessionLocal()
     try:
-        category = db.query(Category).filter(Category.id == category_id).first()
+        category = (
+            db.query(Category).filter(Category.id == category_id).first()
+        )
         return category.name if category else "미분류"
     finally:
         db.close()
+
 
 def create_user(username: str, email: str, password_hash: str) -> int:
     """새로운 사용자를 생하는 함수"""
     db = SessionLocal()
     try:
-        query = text("""
+        query = text(
+            """
         INSERT INTO users (username, email, password_hash)
         VALUES (:username, :email, :password_hash)
         RETURNING id
-        """)
-        result = db.execute(query, {
-            'username': username,
-            'email': email,
-            'password_hash': password_hash
-        })
+        """
+        )
+        result = db.execute(
+            query,
+            {
+                "username": username,
+                "email": email,
+                "password_hash": password_hash,
+            },
+        )
         user_id = result.scalar()
         db.commit()
         return user_id  # user_id 반환
@@ -692,15 +765,12 @@ def create_user(username: str, email: str, password_hash: str) -> int:
     finally:
         db.close()
 
+
 def create_initial_profile(user_id: int):
     """새 사용자의 초기 프로필을 생성하는 함수"""
     db = SessionLocal()
     try:
-        profile = UserProfile(
-            user_id=user_id,
-            content="",
-            consultant_style=""
-        )
+        profile = UserProfile(user_id=user_id, content="", consultant_style="")
         db.add(profile)
         db.commit()
     except Exception as e:
@@ -709,71 +779,75 @@ def create_initial_profile(user_id: int):
     finally:
         db.close()
 
+
 def get_user_by_credentials(email: str) -> dict:
     """이메일로 사용자 인증 정보를 조회하는 함수"""
     db = SessionLocal()
     try:
-        query = text("""
+        query = text(
+            """
         SELECT id, email, username, password_hash, is_active
         FROM users
         WHERE email = :email
-        """)
-        result = db.execute(query, {'email': email}).fetchone()
+        """
+        )
+        result = db.execute(query, {"email": email}).fetchone()
         if result:
             return {
-                'id': result[0],
-                'email': result[1],
-                'username': result[2],
-                'password_hash': result[3],
-                'is_active': result[4]
+                "id": result[0],
+                "email": result[1],
+                "username": result[2],
+                "password_hash": result[3],
+                "is_active": result[4],
             }
         return None
     finally:
         db.close()
+
 
 def get_user_by_email(email: str) -> dict:
     """이메일로 사용자를 조회하는 함수"""
     db = SessionLocal()
     try:
-        query = text("""
+        query = text(
+            """
         SELECT id, email, username
         FROM users
         WHERE email = :email
-        """)
-        result = db.execute(query, {'email': email}).fetchone()
+        """
+        )
+        result = db.execute(query, {"email": email}).fetchone()
         if result:
-            return {
-                'id': result[0],
-                'email': result[1],
-                'username': result[2]
-            }
+            return {"id": result[0], "email": result[1], "username": result[2]}
         return None
     finally:
         db.close()
+
 
 def update_last_login(user_id: int):
     """마지막 로그인 시간을 업데이트하는 함수"""
     db = SessionLocal()
     try:
-        query = text("""
+        query = text(
+            """
         UPDATE users
         SET last_login = :last_login
         WHERE id = :user_id
-        """)
-        db.execute(query, {
-            'last_login': datetime.now(),
-            'user_id': user_id
-        })
+        """
+        )
+        db.execute(query, {"last_login": datetime.now(), "user_id": user_id})
         db.commit()
     finally:
         db.close()
+
 
 def update_session(user_id: int, session_token: str, expires_at: datetime):
     """세션 정보를 업데이트하는 함수"""
     db = SessionLocal()
     try:
         # 기존 세션이 있으면 업데이트, 없으면 새로 생성
-        query = text("""
+        query = text(
+            """
         INSERT INTO sessions (user_id, session_token, expires_at)
         VALUES (:user_id, :session_token, :expires_at)
         ON CONFLICT (user_id) 
@@ -781,98 +855,88 @@ def update_session(user_id: int, session_token: str, expires_at: datetime):
             session_token = :session_token,
             expires_at = :expires_at,
             last_activity = CURRENT_TIMESTAMP
-        """)
-        db.execute(query, {
-            'user_id': user_id,
-            'session_token': session_token,
-            'expires_at': expires_at
-        })
+        """
+        )
+        db.execute(
+            query,
+            {
+                "user_id": user_id,
+                "session_token": session_token,
+                "expires_at": expires_at,
+            },
+        )
         db.commit()
     finally:
         db.close()
+
 
 def get_session(session_token: str):
     """세션 토큰으로 세션 정보를 조회하는 함수"""
     db = SessionLocal()
     try:
-        query = text("""
+        query = text(
+            """
         SELECT user_id, expires_at 
         FROM sessions 
         WHERE session_token = :token 
         AND expires_at > CURRENT_TIMESTAMP
-        """)
-        result = db.execute(query, {'token': session_token}).fetchone()
+        """
+        )
+        result = db.execute(query, {"token": session_token}).fetchone()
         return result if result else None
     finally:
         db.close()
+
 
 def validate_session_token(session_token: str) -> bool:
     """세션 토큰의 유효성을 검사하는 함수"""
     db = SessionLocal()
     try:
-        query = text("""
+        query = text(
+            """
         SELECT EXISTS (
             SELECT 1 FROM sessions 
             WHERE session_token = :token 
             AND expires_at > CURRENT_TIMESTAMP
         )
-        """)
-        result = db.execute(query, {'token': session_token}).scalar()
+        """
+        )
+        result = db.execute(query, {"token": session_token}).scalar()
         return bool(result)
     finally:
         db.close()
+
 
 def delete_session(session_token: str):
     """세션을 삭제하는 함수"""
     db = SessionLocal()
     try:
-        query = text("""
+        query = text(
+            """
         DELETE FROM sessions 
         WHERE session_token = :token
-        """)
-        db.execute(query, {'token': session_token})
+        """
+        )
+        db.execute(query, {"token": session_token})
         db.commit()
     finally:
         db.close()
+
 
 def get_user_by_id(user_id: int) -> dict:
     """사용자 ID로 사용자 정보를 조회하는 함수"""
     db = SessionLocal()
     try:
-        query = text("""
+        query = text(
+            """
         SELECT id, username, email
         FROM users
         WHERE id = :user_id
-        """)
-        result = db.execute(query, {'user_id': user_id}).fetchone()
+        """
+        )
+        result = db.execute(query, {"user_id": user_id}).fetchone()
         if result:
-            return {
-                'id': result[0],
-                'username': result[1],
-                'email': result[2]
-            }
+            return {"id": result[0], "username": result[1], "email": result[2]}
         return None
     finally:
         db.close()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
