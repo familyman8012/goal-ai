@@ -940,3 +940,62 @@ def get_user_by_id(user_id: int) -> dict:
         return None
     finally:
         db.close()
+
+
+# 대화 게시판 테이블 생성 쿼리 추가
+def create_tables():
+    # ... 기존 테이블 생성 코드 ...
+
+    # 대화 게시판 테이블 생성
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chat_history (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            title VARCHAR(200),
+            content TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """
+    )
+
+
+# 대화 저장 함수
+def add_chat_history(user_id: int, title: str, content: str) -> int:
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO chat_history (user_id, title, content)
+                VALUES (%s, %s, %s)
+                RETURNING id
+                """,
+                (user_id, title, content),
+            )
+            chat_id = cur.fetchone()[0]
+            conn.commit()
+            return chat_id
+
+
+# 대화 기록 조회 함수
+def get_chat_histories(user_id: int = None, limit: int = None):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            query = """
+                SELECT ch.id, ch.title, ch.content, ch.created_at, u.username
+                FROM chat_history ch
+                JOIN users u ON ch.user_id = u.id
+            """
+            if user_id:
+                query += " WHERE ch.user_id = %s"
+            query += " ORDER BY ch.created_at DESC"
+            if limit:
+                query += f" LIMIT {limit}"
+
+            if user_id:
+                cur.execute(query, (user_id,))
+            else:
+                cur.execute(query)
+
+            return cur.fetchall()

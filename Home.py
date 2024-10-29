@@ -94,7 +94,7 @@ with st.expander("📖 사용법 보기"):
     ### 검색 결과 저장
     ```
     예시:
-    - "방금 검색 결과 정보 게시판에 올려줘"
+    - "방금 검색 결과 정보 게시에 올려줘"
     - "방금 검색 결과 제목은 2024 상반기 개봉 영화로 정보 게시판에 올려줘"
     ```
 
@@ -171,7 +171,7 @@ def generate_system_message():
                 if not goal.category_id
                 else get_category_name(goal.category_id)
             )
-            importance = goal.importance if goal.importance else "미설정"
+            importance = goal.importance if goal.importance else "미정"
             deadline = goal.end_date.strftime("%Y-%m-%d %H:%M")
 
             goal_detail = (
@@ -211,11 +211,44 @@ if not memory.get_messages():
     memory.add_message("system", generate_system_message())
 
 # 이전 메시지 표시 (시스템 메시지 제외)
-for msg in memory.get_messages()[1:]:  # 시스템 메시지 제외
-    with st.chat_message(
-        "user" if isinstance(msg, HumanMessage) else "assistant"
-    ):
-        st.write(msg.content)
+messages_container = st.container()
+with messages_container:
+    # 대화 내용 표시
+    for (
+        msg
+    ) in (
+        memory.get_display_messages()
+    ):  # get_messages() 대신 get_display_messages() 사용
+        with st.chat_message(
+            "user" if isinstance(msg, HumanMessage) else "assistant"
+        ):
+            st.write(msg.content)
+
+# 대화 저장 버튼 추가 (컨테이너 아래에)
+if st.button("💾 대화 내용 저장"):
+    try:
+        # 현재 시간을 제목에 포함
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+        title = f"AI 상담 기록 ({current_time})"
+
+        # 전체 대화 컨텍스트 포함하여 저장
+        context = ""
+        messages = memory.get_messages()
+        for msg in messages[1:]:  # 시스템 메시지 제외
+            if isinstance(msg, HumanMessage):
+                context += f"\n사용자: {msg.content}\n"
+            elif isinstance(msg, AIMessage):
+                context += f"\nAI: {msg.content}\n"
+
+        # board 테이블에 'chat' 타입으로 저장
+        add_post(
+            board_type="chat",
+            title=title,
+            content=context.strip(),  # user_id 제거 (함수 내부에서 처리됨)
+        )
+        st.success("전체 대화 내용이 저장되었습니다.")
+    except Exception as e:
+        st.error(f"저장 중 오류가 발생했습니다: {str(e)}")
 
 # 사용자 입력 처리
 if prompt := st.chat_input("AI 컨설턴트에게 메시지를 보내세요"):
