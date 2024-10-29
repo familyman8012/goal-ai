@@ -88,7 +88,7 @@ else:
                         st.error(f"링크 수정 중 오류가 발생했습니다: {str(e)}")
             else:
                 # 표시 모드
-                st.markdown(f"[{link['site_name']}]({link['url']})")
+                st.markdown(f"{link['site_name']} ({link['url']})")
         
         with col2:
             if st.button("✏️", key=f"edit_{link['id']}"):

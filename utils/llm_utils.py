@@ -42,11 +42,11 @@ class StreamHandler(BaseCallbackHandler):
 
 
 class ChatMemory:
-    def __init__(self, session_id: str, max_messages: int = 4):
+    def __init__(self, session_id: str, max_pairs: int = 3):
         self.history_key = f"chat_history_{session_id}"
-        self.max_messages = max_messages
+        self.max_pairs = max_pairs
         self.buffer_key = f"chat_buffer_{session_id}"
-        self.display_key = f"chat_display_{session_id}"  # 표시용 메시지 저장
+        self.display_key = f"chat_display_{session_id}"
 
         # 세션 상태 초기화
         if self.history_key not in st.session_state:
@@ -74,9 +74,13 @@ class ChatMemory:
         else:
             # 일반 메시지는 버퍼와 display에 추가
             st.session_state[self.buffer_key].append(message)
-            st.session_state[self.display_key].append(message)  # 표시용 저장
+            st.session_state[self.display_key].append(message)
 
-            if len(st.session_state[self.buffer_key]) > self.max_messages:
+            # 버퍼의 메시지 쌍 수 계산 (user-ai 쌍)
+            message_pairs = len(st.session_state[self.buffer_key]) // 2
+
+            # 대화 쌍이 max_pairs를 초과하면 요약
+            if message_pairs >= self.max_pairs:
                 self._move_to_history()
 
     def get_messages(self):
@@ -103,17 +107,14 @@ class ChatMemory:
         return all_messages
 
     def get_display_messages(self):
-        # UI 표시용 메시지 (전체 대화 내역)
+        # UI 표시 메시지 (전체 대화 내역)
         return st.session_state[self.display_key]
 
     def _move_to_history(self):
-        # 버퍼의 절반을 요약하여 history로 이동
-        messages_to_summarize = st.session_state[self.buffer_key][
-            : (self.max_messages // 2)
-        ]
-        st.session_state[self.buffer_key] = st.session_state[self.buffer_key][
-            (self.max_messages // 2) :
-        ]
+        # 버퍼의 모든 메시지를 한번에 요약
+        messages_to_summarize = st.session_state[self.buffer_key]
+        # 버퍼 비우기
+        st.session_state[self.buffer_key] = []
 
         if messages_to_summarize:
             summary = self._create_summary(messages_to_summarize)
@@ -141,63 +142,99 @@ class ChatMemory:
             st.session_state[self.history_key] = new_history
 
     def _create_summary(self, messages):
-        # 대화 내용을 구조화된 형태로 구성
-        conversation_parts = []
-
-        for msg in messages:
-            if isinstance(msg, HumanMessage):
-                conversation_parts.append(
-                    {"role": "user", "content": msg.content}
-                )
-            elif isinstance(msg, AIMessage):
-                conversation_parts.append(
-                    {"role": "assistant", "content": msg.content}
-                )
-
-        # 요약을 위한 프롬프트 구성
-        summary_prompt = """
-        다음 대화 내용을 요약해주세요. 각 발화자의 역할을 명확히 구분하여 요약해주세요:
-
-        {conversation}
-        
-        다음 형식으로 요약해주세요:
-        1. 사용자 질문/요청: (사용자가 물어본 내용)
-        2. AI 답변 요점: (AI가 답변한 핵심 내용)
-        """
-
-        # 대화 내용을 프롬프트에 포함
-        conversation_text = "\n\n".join(
-            [
-                f"{'사용자' if msg['role'] == 'user' else 'AI'}:"
-                f" {msg['content']}"
-                for msg in conversation_parts
-            ]
-        )
-
         try:
-            llm = LLMFactory.create_llm(
-                st.session_state.get(
-                    "selected_model", "claude-3-haiku-20240307"
-                )
-            )
-            response = llm.invoke(
-                [
-                    HumanMessage(
-                        content=summary_prompt.format(
-                            conversation=conversation_text
-                        )
-                    )
-                ]
-            )
+            # 대화 내용을 구조화된 형태로 구성
+            conversation_parts = []
+            for msg in messages:
+                if isinstance(msg, HumanMessage):
+                    conversation_parts.append({"role": "user", "content": msg.content})
+                elif isinstance(msg, AIMessage):
+                    conversation_parts.append({"role": "assistant", "content": msg.content})
 
-            return response.content
+            # 요약을 위한 프롬프트 구성
+            summary_prompt = """
+            다음 대화 내용을 150자 이내로 핵심만 간단히 요약해주세요:
+
+            {conversation}
+            
+            요약 형식:
+            현재까지의 대화를 사용자와 ai 가 무슨 대화를 했었는지 핵심만 요약해주세요.
+            
+            주의사항:
+            1. 150자를 넘지 않도록 할 것
+            2. 중요 키워드는 반드시 포함할 것
+            3. 구체적인 수치나 날짜는 유지할 것
+            """
+
+            # 대화 내용을 프롬프트에 포함
+            conversation_text = "\n".join([
+                f"{'사용자' if msg['role'] == 'user' else 'AI'}: {msg['content']}"
+                for msg in conversation_parts
+            ])
+
+            # 요약을 위해 Gemini-Flash 모델 사용
+            llm = LLMFactory.create_llm("gemini-1.5-flash-latest")
+            response = llm.invoke([
+                HumanMessage(content=summary_prompt.format(conversation=conversation_text))
+            ])
+            
+            # 임시 UI로 요약 과정 표시
+            with st.expander("🔍 요약 디버그"):
+                st.write("### 현재 요약 과정")
+                st.write("원본 대화:")
+                st.write(conversation_text)
+                st.write("---")
+                st.write("새로운 요약 결과 (Gemini-Flash):")
+                st.write(response.content)
+                
+                st.write("\n### 전체 대화 컨텍스트")
+                st.write("시스템 메시지:")
+                for msg in st.session_state[self.history_key]:
+                    if isinstance(msg, SystemMessage):
+                        st.write(msg.content)
+                
+                st.write("\n요약된 이전 대화:")
+                for msg in st.session_state[self.history_key]:
+                    if isinstance(msg, AIMessage) and "[이전 대화 요약]" in msg.content:
+                        st.write(msg.content)
+                
+                st.write("\n현재 버퍼의 대화:")
+                for msg in st.session_state[self.buffer_key]:
+                    role = "사용자" if isinstance(msg, HumanMessage) else "AI"
+                    st.write(f"{role}: {msg.content}")
+       
+                
+            # 응답 검증 강화
+            summary = response.content
+            if not summary or len(summary) < 10:
+                raise ValueError("응답이 너무 짧습니다")
+            
+            if len(summary) > 400:  # 200자 제한의 2배까지 허용
+                raise ValueError("응답이 너무 깁니다")
+            
+
+            
+            # 핵 키워드 포함 여부 검증 (옵션)
+            # important_keywords = self._extract_keywords(messages)
+            # if not any(keyword in summary for keyword in important_keywords):
+            #     raise ValueError("중요 키워드가 누락되었습니다")
+            
+            return summary
+
         except Exception as e:
-            # 요약 실패 시 구조화된 폴백
-            fallback_summary = ""
-            for msg in conversation_parts:
-                role = "사용자" if msg["role"] == "user" else "AI"
-                fallback_summary += f"{role}: {msg['content']}\n"
-            return fallback_summary
+            st.warning(f"요약 생성 실패: {str(e)}")
+            return self._create_fallback_summary(messages)
+
+    def _create_fallback_summary(self, messages):
+        fallback_summary = "대화 요약:\n"
+        for msg in messages[-2:]:  # 마지막 2개 메시지만 포함
+            role = "사용자" if isinstance(msg, HumanMessage) else "AI"
+            content = msg.content
+            if len(content) > 50:
+                content = content[:47] + "..."
+            fallback_summary += f"- {role}: {content}\n"
+        
+        return fallback_summary
 
 
 class LLMFactory:
@@ -251,19 +288,16 @@ class LLMFactory:
         session_id: str,
         stream_handler: StreamHandler = None,
     ) -> str:
-        llm = LLMFactory.create_llm(model_name)
-        memory = ChatMemory(session_id)
-
         try:
+            llm = LLMFactory.create_llm(model_name)
+            memory = ChatMemory(session_id)
             messages = memory.get_messages()
 
             # 제미니 모델을 위한 특별 처리
             if model_name.startswith("gemini"):
                 try:
                     # 기존 메시지 히스토리 활용하도록 수정
-                    if not messages or not isinstance(
-                        messages[0], SystemMessage
-                    ):
+                    if not messages or not isinstance(messages[0], SystemMessage):
                         memory.add_message("system", system_prompt)
                         messages = memory.get_messages()
 
@@ -276,9 +310,7 @@ class LLMFactory:
                     for msg in messages:
                         if isinstance(msg, SystemMessage):
                             gemini_messages.append(
-                                HumanMessage(
-                                    content=f"시스템 설정: {msg.content}"
-                                )
+                                HumanMessage(content=f"시스템 설정: {msg.content}")
                             )
                         elif isinstance(msg, HumanMessage):
                             gemini_messages.append(msg)
@@ -311,11 +343,7 @@ class LLMFactory:
 
                 response = llm.invoke(
                     messages,
-                    config={
-                        "callbacks": (
-                            [stream_handler] if stream_handler else None
-                        )
-                    },
+                    config={"callbacks": ([stream_handler] if stream_handler else None)}
                 )
 
                 # AI 응답 저장
@@ -326,5 +354,5 @@ class LLMFactory:
             error_msg = f"오류가 발생했습니다: {str(e)}"
             if stream_handler:
                 stream_handler.placeholder.error(error_msg)
-            st.error(f"상세 오류: {str(e)}")  # 상세 오류 메시지 표시
-            return error_msg
+            st.error(f"상세 오류: {str(e)}")
+            return f"죄송합니다. 오류가 발생했습니다. 잠시 후 다시 시도해주세요. (에러: {str(e)})"

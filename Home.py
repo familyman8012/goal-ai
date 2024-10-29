@@ -137,55 +137,40 @@ def generate_system_message():
     todays_goals = get_todays_goals()
     incomplete_goals = get_incomplete_goals()
 
-    # 오늘의 할일 문자열 생성
+    # 오늘의 할일 문자열 생성 - 간단하게 수정
     todays_goals_str = "없음"
     if todays_goals:
         goals_details = []
         for goal in todays_goals:
             start_time = goal.start_date.strftime("%H:%M")
             end_time = goal.end_date.strftime("%H:%M")
-            category = (
-                "미분류"
-                if not goal.category_id
-                else get_category_name(goal.category_id)
-            )
             importance = goal.importance if goal.importance else "미설정"
-
+            memo = goal.memo if goal.memo else "미정"
+            status = goal.status if goal.status else "미정"
+           
             goal_detail = (
-                f"- {goal.title}\n"
-                f"  📅 {start_time}-{end_time}\n"
-                f"  📁 카테고리: {category}\n"
-                f"  ⭐ 중요도: {importance}\n"
-                f"  📝 메모: {goal.memo if goal.memo else '없음'}"
+                f"일정 : {goal.title} / 시간 : {start_time}-{end_time} / 중요도: {importance} / 메모: {memo} / 상태: {status} "
             )
             goals_details.append(goal_detail)
-        todays_goals_str = "\n\n".join(goals_details)
+        todays_goals_str = "\n".join(goals_details)
 
-    # 미완료 목표 문자열 생성
+    # 미완료 목표 문자열 생성 - 간단하게 수정
     incomplete_goals_str = "없음"
     if incomplete_goals:
         goals_details = []
         for goal in incomplete_goals:
-            category = (
-                "미분류"
-                if not goal.category_id
-                else get_category_name(goal.category_id)
-            )
+            deadline = goal.end_date.strftime("%Y-%m-%d")
             importance = goal.importance if goal.importance else "미정"
-            deadline = goal.end_date.strftime("%Y-%m-%d %H:%M")
+            memo = goal.memo if goal.memo else "미정"
+            status = goal.status if goal.status else "미정"
 
             goal_detail = (
-                f"{goal.title}\n"
-                f"마감: {deadline}\n"
-                f"카테고리: {category}\n"
-                f"중요도: {importance}\n"
-                f"메모: {goal.memo if goal.memo else '없음'}"
+                f"- {goal.title} / 마감: {deadline} / 중요도: {importance} / 메모: {memo} / 상태: {status} "
             )
             goals_details.append(goal_detail)
-        incomplete_goals_str = "\n\n".join(goals_details)
+        incomplete_goals_str = "\n".join(goals_details)
 
     return f"""
-    
     {profile.get("content", "")}
     
     오늘의 할일:
